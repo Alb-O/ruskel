@@ -1,13 +1,10 @@
 //! Command-line interface for the `ruskel` API skeleton generator.
 
 use std::error::Error;
-use std::io::{self, IsTerminal, Write};
 use std::process::{self, Command, Stdio};
-use std::{env, thread};
 
 use clap::{Parser, ValueEnum};
 use libruskel::{Ruskel, SearchDomain, SearchOptions};
-use shell_words::split;
 use tokio::runtime::Runtime;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -123,10 +120,6 @@ struct Cli {
 	#[arg(long, value_delimiter = ',')]
 	features: Vec<String>,
 
-	/// Disable paging
-	#[arg(long, default_value_t = false)]
-	no_page: bool,
-
 	/// Enable offline mode, ensuring Cargo will not use the network
 	#[arg(long, default_value_t = false)]
 	offline: bool,
@@ -205,7 +198,6 @@ fn run_mcp(cli: &Cli) -> Result<(), Box<dyn Error>> {
 		|| cli.no_default_features
 		|| cli.all_features
 		|| !cli.features.is_empty()
-		|| cli.no_page
 	{
 		return Err(
 			"--mcp can only be used with --auto-impls, --private, --offline, and --verbose".into(),
@@ -264,11 +256,7 @@ fn run_cmdline(cli: &Cli) -> Result<(), Box<dyn Error>> {
 		)?
 	};
 
-	if io::stdout().is_terminal() && !cli.no_page {
-		page_output(output)?;
-	} else {
-		println!("{output}");
-	}
+	println!("{output}");
 
 	Ok(())
 }
@@ -354,11 +342,7 @@ fn run_list(cli: &Cli, rs: &Ruskel) -> Result<(), Box<dyn Error>> {
 		}
 	}
 
-	if io::stdout().is_terminal() && !cli.no_page {
-		page_output(buffer)?;
-	} else {
-		print!("{}", buffer);
-	}
+	print!("{}", buffer);
 
 	Ok(())
 }
@@ -392,11 +376,7 @@ fn run_search(cli: &Cli, rs: &Ruskel, query: &str) -> Result<(), Box<dyn Error>>
 
 	let output = response.rendered;
 
-	if io::stdout().is_terminal() && !cli.no_page {
-		page_output(output)?;
-	} else {
-		print!("{}", output);
-	}
+	print!("{}", output);
 
 	Ok(())
 }
@@ -429,81 +409,5 @@ fn main() {
 	if let Err(e) = result {
 		eprintln!("{e}");
 		process::exit(1);
-	}
-}
-
-/// Check whether the given command is discoverable on the current `PATH`.
-fn is_command_available(cmd: &str) -> bool {
-	which::which(cmd).is_ok()
-}
-
-/// Parse the pager command and arguments from the `PAGER` environment variable.
-fn pager_command_from_env() -> (String, Vec<String>) {
-	const DEFAULT_PAGER: &str = "less";
-
-	let raw_value = env::var("PAGER")
-		.ok()
-		.map(|value| value.trim().to_string())
-		.filter(|value| !value.is_empty())
-		.unwrap_or_else(|| DEFAULT_PAGER.to_string());
-
-	match split(&raw_value) {
-		Ok(mut parts) => {
-			if parts.is_empty() {
-				return (DEFAULT_PAGER.to_string(), Vec::new());
-			}
-
-			let command = parts.remove(0);
-			(command, parts)
-		}
-		Err(_) => {
-			let mut fallback: Vec<String> =
-				raw_value.split_whitespace().map(str::to_owned).collect();
-
-			if fallback.is_empty() {
-				return (DEFAULT_PAGER.to_string(), Vec::new());
-			}
-
-			let command = fallback.remove(0);
-			(command, fallback)
-		}
-	}
-}
-
-/// Display the generated content through a pager when available.
-fn page_output(content: String) -> Result<(), Box<dyn Error>> {
-	let (pager_command, pager_args) = pager_command_from_env();
-
-	if !is_command_available(&pager_command) {
-		println!("{content}");
-		return Ok(());
-	}
-
-	let mut command = Command::new(&pager_command);
-	command.args(&pager_args);
-	command.stdin(Stdio::piped());
-
-	let mut child = command.spawn()?;
-
-	let mut stdin = child
-		.stdin
-		.take()
-		.ok_or_else(|| io::Error::other("Failed to open stdin for pager"))?;
-
-	thread::spawn(move || {
-		stdin.write_all(content.as_bytes()).ok();
-		drop(stdin);
-	});
-
-	match child.wait() {
-		Ok(status) => {
-			if !status.success() {
-				eprintln!("Pager exited with non-zero status: {status}");
-			}
-			Ok(())
-		}
-		Err(error) => Err(Box::new(io::Error::other(format!(
-			"Failed to wait for pager: {error}"
-		)))),
 	}
 }

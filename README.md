@@ -58,9 +58,9 @@ trait      crate::io::AsyncRead
 ```
 
 Combine `--list` with `--search` to filter the catalog using the same domain
-controls as skeleton search. The listing honours `--private`, feature flags, and
-paging choices, and it conflicts with `--raw` because the output is tabular
-text rather than Rust code.
+controls as skeleton search. The listing honours `--private` and feature flags,
+and it conflicts with `--raw` because the output is tabular text rather than
+Rust code.
 
 ### Frontmatter Metadata
 

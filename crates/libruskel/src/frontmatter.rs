@@ -49,37 +49,12 @@ impl FrontmatterConfig {
 	/// Render the configured frontmatter when enabled, returning the formatted comment block.
 	pub fn render(
 		&self,
-		include_private: bool,
-		render_auto_impls: bool,
-		render_blanket_impls: bool,
 	) -> Option<String> {
 		if !self.enabled {
 			return None;
 		}
 
 		let mut output = String::new();
-		output.push_str(
-			"// Ruskel skeleton - syntactically valid Rust with implementation omitted.\n",
-		);
-
-		let mut settings = Vec::new();
-		if let Some(target) = &self.target {
-			settings.push(format!("target={target}"));
-		}
-
-		if let Some(filter) = &self.filter
-			&& !filter.is_empty()
-		{
-			settings.push(format!("path={filter}"));
-		}
-
-		let visibility = if include_private { "private" } else { "public" };
-		settings.push(format!("visibility={visibility}"));
-		settings.push(format!("auto_impls={render_auto_impls}"));
-		settings.push(format!("blanket_impls={render_blanket_impls}"));
-
-		writeln!(output, "// settings: {}", settings.join(", "))
-			.expect("write frontmatter settings");
 
 		if let Some(search) = &self.search {
 			output.push('\n');

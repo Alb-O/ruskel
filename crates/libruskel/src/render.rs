@@ -230,11 +230,7 @@ impl RenderState<'_, '_> {
 
 		let mut composed = String::new();
 		if let Some(frontmatter) = &self.config.frontmatter
-			&& let Some(prefix) = frontmatter.render(
-				self.config.render_private_items,
-				self.config.render_auto_impls,
-				self.config.render_blanket_impls,
-			) {
+			&& let Some(prefix) = frontmatter.render() {
 			composed.push_str(&prefix);
 		}
 		composed.push_str(&output);
@@ -1560,11 +1556,7 @@ mod tests {
 				};
 				let mut composed = String::new();
 				if let Some(frontmatter) = &renderer.frontmatter
-					&& let Some(prefix) = frontmatter.render(
-						renderer.render_private_items,
-						renderer.render_auto_impls,
-						renderer.render_blanket_impls,
-					) {
+					&& let Some(prefix) = frontmatter.render() {
 					composed.push_str(&prefix);
 				}
 				composed.push_str(&state.render_item(

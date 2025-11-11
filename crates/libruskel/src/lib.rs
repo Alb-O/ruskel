@@ -18,8 +18,6 @@ mod cargoutils;
 mod crateutils;
 /// Error types exposed by the libruskel crate.
 mod error;
-/// Frontmatter formatting and configuration helpers.
-mod frontmatter;
 /// Identifier helpers shared across rendering code.
 mod keywords;
 /// Rendering logic that turns rustdoc data into skeleton code.

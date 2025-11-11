@@ -104,10 +104,6 @@ struct Cli {
 	#[arg(long, default_value_t = false)]
 	private: bool,
 
-	/// Disable frontmatter comments in the rendered skeleton
-	#[arg(long, default_value_t = false)]
-	no_frontmatter: bool,
-
 	/// Disable default features
 	#[arg(long, default_value_t = false)]
 	no_default_features: bool,
@@ -208,7 +204,6 @@ fn run_mcp(cli: &Cli) -> Result<(), Box<dyn Error>> {
 	let ruskel = Ruskel::new()
 		.with_offline(cli.offline)
 		.with_auto_impls(cli.auto_impls)
-		.with_frontmatter(!cli.no_frontmatter)
 		.with_silent(!cli.verbose);
 
 	// Run the MCP server
@@ -227,7 +222,6 @@ fn run_cmdline(cli: &Cli) -> Result<(), Box<dyn Error>> {
 	let rs = Ruskel::new()
 		.with_offline(cli.offline)
 		.with_auto_impls(cli.auto_impls)
-		.with_frontmatter(!cli.no_frontmatter)
 		.with_silent(!cli.verbose);
 
 	if cli.list {

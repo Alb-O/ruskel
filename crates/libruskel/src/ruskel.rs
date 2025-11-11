@@ -2,7 +2,6 @@ use rustdoc_types::Crate;
 
 use super::cargoutils::*;
 use super::error::*;
-use super::frontmatter::{FrontmatterConfig, FrontmatterHit, FrontmatterSearch};
 use super::render::*;
 use super::search::{
 	ListItem, SearchIndex, SearchItemKind, SearchOptions, SearchResponse, build_render_selection,
@@ -25,9 +24,6 @@ pub struct Ruskel {
 
 	/// Whether to suppress output during processing.
 	silent: bool,
-
-	/// Whether to emit frontmatter comments with rendered output.
-	frontmatter: bool,
 }
 
 impl Default for Ruskel {
@@ -71,7 +67,6 @@ impl Ruskel {
 			offline: false,
 			auto_impls: false,
 			silent: false,
-			frontmatter: true,
 		}
 	}
 
@@ -91,12 +86,6 @@ impl Ruskel {
 	/// Enables or disables silent mode, which suppresses output during processing.
 	pub fn with_silent(mut self, silent: bool) -> Self {
 		self.silent = silent;
-		self
-	}
-
-	/// Enables or disables frontmatter emission on rendered output.
-	pub fn with_frontmatter(mut self, frontmatter: bool) -> Self {
-		self.frontmatter = frontmatter;
 		self
 	}
 
@@ -158,36 +147,11 @@ impl Ruskel {
 		}
 
 		let selection = build_render_selection(&index, &results, options.expand_containers);
-		let mut renderer = Renderer::default()
+		let renderer = Renderer::default()
 			.with_filter(&rt.filter)
 			.with_auto_impls(self.auto_impls)
 			.with_private_items(options.include_private)
 			.with_selection(selection);
-		if self.frontmatter {
-			let hits = results
-				.iter()
-				.map(|result| FrontmatterHit {
-					path: result.path_string.clone(),
-					domains: result.matched,
-				})
-				.collect();
-			let search_meta = FrontmatterSearch {
-				query: options.query.clone(),
-				domains: options.domains,
-				case_sensitive: options.case_sensitive,
-				expand_containers: options.expand_containers,
-				hits,
-			};
-			let filter = if rt.filter.is_empty() {
-				None
-			} else {
-				Some(rt.filter)
-			};
-			let frontmatter = FrontmatterConfig::for_target(target.to_string())
-				.with_filter(filter)
-				.with_search(search_meta);
-			renderer = renderer.with_frontmatter(frontmatter);
-		}
 		let rendered = renderer.render(&crate_data)?;
 
 		Ok(SearchResponse { results, rendered })
@@ -263,19 +227,10 @@ impl Ruskel {
 			self.silent,
 		)?;
 
-		let mut renderer = Renderer::default()
+		let renderer = Renderer::default()
 			.with_filter(&rt.filter)
 			.with_auto_impls(self.auto_impls)
 			.with_private_items(private_items);
-		if self.frontmatter {
-			let filter = if rt.filter.is_empty() {
-				None
-			} else {
-				Some(rt.filter)
-			};
-			let frontmatter = FrontmatterConfig::for_target(target.to_string()).with_filter(filter);
-			renderer = renderer.with_frontmatter(frontmatter);
-		}
 
 		let rendered = renderer.render(&crate_data)?;
 

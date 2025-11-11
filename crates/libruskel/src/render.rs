@@ -9,7 +9,6 @@ use rustdoc_types::{
 
 use crate::crateutils::*;
 use crate::error::{Result, RuskelError};
-use crate::frontmatter::FrontmatterConfig;
 use crate::keywords::is_reserved_word;
 
 /// Traits that we render via `#[derive(...)]` annotations instead of explicit impl blocks.
@@ -136,8 +135,6 @@ pub struct Renderer {
 	filter: String,
 	/// Optional selection restricting which items are rendered.
 	selection: Option<RenderSelection>,
-	/// Optional frontmatter configuration rendered before crate content.
-	frontmatter: Option<FrontmatterConfig>,
 }
 
 /// Mutable rendering context shared across helper functions.
@@ -167,7 +164,6 @@ impl Renderer {
 			render_blanket_impls: false,
 			filter: String::new(),
 			selection: None,
-			frontmatter: None,
 		}
 	}
 
@@ -201,12 +197,6 @@ impl Renderer {
 		self
 	}
 
-	/// Attach optional frontmatter metadata to the rendered output.
-	pub fn with_frontmatter(mut self, frontmatter: FrontmatterConfig) -> Self {
-		self.frontmatter = Some(frontmatter);
-		self
-	}
-
 	/// Render a crate into formatted Rust source text.
 	pub fn render(&self, crate_data: &Crate) -> Result<String> {
 		let mut state = RenderState {
@@ -228,14 +218,7 @@ impl RenderState<'_, '_> {
 			return Err(RuskelError::FilterNotMatched(self.config.filter.clone()));
 		}
 
-		let mut composed = String::new();
-		if let Some(frontmatter) = &self.config.frontmatter
-			&& let Some(prefix) = frontmatter.render() {
-			composed.push_str(&prefix);
-		}
-		composed.push_str(&output);
-
-		Ok(self.config.formatter.format_str(&composed)?)
+		Ok(self.config.formatter.format_str(&output)?)
 	}
 
 	/// Return the active render selection, if any.
@@ -1128,421 +1111,22 @@ impl RenderState<'_, '_> {
 
 #[cfg(test)]
 mod tests {
-	use std::collections::HashMap;
 	use std::slice;
 
-	use rustdoc_types::{
-		Crate, Function, FunctionSignature, Id, Impl, Item,
-		ItemEnum, Module, Path, Struct, StructKind, Target, Type, Variant, VariantKind, Visibility,
-	};
+	use rustdoc_types::Crate;
 
 	use super::*;
-	use crate::frontmatter::{FrontmatterConfig, FrontmatterHit, FrontmatterSearch};
 	use crate::search::{SearchDomain, SearchIndex, SearchOptions, build_render_selection};
-	use crate::testutils::{default_header, empty_generics};
+	use crate::testutils::load_fixture;
 
 	fn fixture_crate() -> Crate {
-		let root = Id(0);
-		let widget = Id(1);
-		let widget_field_id = Id(2);
-		let widget_field_name = Id(3);
-		let widget_impl = Id(4);
-		let render_method = Id(5);
-		let helper_fn = Id(6);
-		let palette_enum = Id(7);
-		let named_variant = Id(8);
-		let named_field = Id(9);
-		let unspecified_variant = Id(10);
-		let widget_private_impl = Id(11);
-		let private_helper_method = Id(12);
-		let tools_module = Id(13);
-		let tool_function = Id(14);
-
-		let mut index = HashMap::new();
-
-		index.insert(
-			root,
-			Item {
-				id: root,
-				crate_id: 0,
-				name: Some("fixture".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Module(Module {
-					is_crate: true,
-					items: vec![
-						widget,
-						helper_fn,
-						palette_enum,
-						widget_impl,
-						widget_private_impl,
-						tools_module,
-					],
-					is_stripped: false,
-				}),
-			},
-		);
-
-		index.insert(
-			widget,
-			Item {
-				id: widget,
-				crate_id: 0,
-				name: Some("Widget".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Struct(Struct {
-					kind: StructKind::Plain {
-						fields: vec![widget_field_id, widget_field_name],
-						has_stripped_fields: false,
-					},
-					generics: empty_generics(),
-					impls: vec![widget_impl, widget_private_impl],
-				}),
-			},
-		);
-
-		index.insert(
-			widget_field_id,
-			Item {
-				id: widget_field_id,
-				crate_id: 0,
-				name: Some("id".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::StructField(Type::Primitive("u32".into())),
-			},
-		);
-
-		index.insert(
-			widget_field_name,
-			Item {
-				id: widget_field_name,
-				crate_id: 0,
-				name: Some("name".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::StructField(Type::Generic("String".into())),
-			},
-		);
-
-		index.insert(
-			widget_impl,
-			Item {
-				id: widget_impl,
-				crate_id: 0,
-				name: None,
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Impl(Impl {
-					is_unsafe: false,
-					generics: empty_generics(),
-					provided_trait_methods: Vec::new(),
-					trait_: None,
-					for_: Type::ResolvedPath(Path {
-						path: "Widget".into(),
-						id: widget,
-						args: None,
-					}),
-					items: vec![render_method],
-					is_negative: false,
-					is_synthetic: false,
-					blanket_impl: None,
-				}),
-			},
-		);
-
-		index.insert(
-			widget_private_impl,
-			Item {
-				id: widget_private_impl,
-				crate_id: 0,
-				name: None,
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Impl(Impl {
-					is_unsafe: false,
-					generics: empty_generics(),
-					provided_trait_methods: Vec::new(),
-					trait_: None,
-					for_: Type::ResolvedPath(Path {
-						path: "Widget".into(),
-						id: widget,
-						args: None,
-					}),
-					items: vec![private_helper_method],
-					is_negative: false,
-					is_synthetic: false,
-					blanket_impl: None,
-				}),
-			},
-		);
-
-		index.insert(
-			render_method,
-			Item {
-				id: render_method,
-				crate_id: 0,
-				name: Some("render".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: Some("Render the widget".into()),
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Function(Function {
-					sig: FunctionSignature {
-						inputs: vec![(
-							"self".into(),
-							Type::BorrowedRef {
-								lifetime: None,
-								is_mutable: false,
-								type_: Box::new(Type::Generic("Self".into())),
-							},
-						)],
-						output: Some(Type::Generic("String".into())),
-						is_c_variadic: false,
-					},
-					generics: empty_generics(),
-					header: default_header(),
-					has_body: true,
-				}),
-			},
-		);
-
-		index.insert(
-			helper_fn,
-			Item {
-				id: helper_fn,
-				crate_id: 0,
-				name: Some("helper".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Function(Function {
-					sig: FunctionSignature {
-						inputs: vec![(
-							"widget".into(),
-							Type::BorrowedRef {
-								lifetime: None,
-								is_mutable: false,
-								type_: Box::new(Type::ResolvedPath(Path {
-									path: "Widget".into(),
-									id: widget,
-									args: None,
-								})),
-							},
-						)],
-						output: Some(Type::ResolvedPath(Path {
-							path: "Widget".into(),
-							id: widget,
-							args: None,
-						})),
-						is_c_variadic: false,
-					},
-					generics: empty_generics(),
-					header: default_header(),
-					has_body: true,
-				}),
-			},
-		);
-
-		index.insert(
-			tools_module,
-			Item {
-				id: tools_module,
-				crate_id: 0,
-				name: Some("tools".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: Some("Utility helpers".into()),
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Module(Module {
-					is_crate: false,
-					items: vec![tool_function],
-					is_stripped: false,
-				}),
-			},
-		);
-
-		index.insert(
-			tool_function,
-			Item {
-				id: tool_function,
-				crate_id: 0,
-				name: Some("instrument".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: Some("Instrument a widget".into()),
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Function(Function {
-					sig: FunctionSignature {
-						inputs: Vec::new(),
-						output: None,
-						is_c_variadic: false,
-					},
-					generics: empty_generics(),
-					header: default_header(),
-					has_body: true,
-				}),
-			},
-		);
-
-		index.insert(
-			private_helper_method,
-			Item {
-				id: private_helper_method,
-				crate_id: 0,
-				name: Some("internal_helper".into()),
-				span: None,
-				visibility: Visibility::Default,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Function(Function {
-					sig: FunctionSignature {
-						inputs: vec![(
-							"self".into(),
-							Type::BorrowedRef {
-								lifetime: None,
-								is_mutable: true,
-								type_: Box::new(Type::Generic("Self".into())),
-							},
-						)],
-						output: None,
-						is_c_variadic: false,
-					},
-					generics: empty_generics(),
-					header: default_header(),
-					has_body: true,
-				}),
-			},
-		);
-
-		index.insert(
-			palette_enum,
-			Item {
-				id: palette_enum,
-				crate_id: 0,
-				name: Some("Palette".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Enum(rustdoc_types::Enum {
-					generics: empty_generics(),
-					has_stripped_variants: false,
-					variants: vec![named_variant, unspecified_variant],
-					impls: Vec::new(),
-				}),
-			},
-		);
-
-		index.insert(
-			named_variant,
-			Item {
-				id: named_variant,
-				crate_id: 0,
-				name: Some("Named".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Variant(Variant {
-					kind: VariantKind::Struct {
-						fields: vec![named_field],
-						has_stripped_fields: false,
-					},
-					discriminant: None,
-				}),
-			},
-		);
-
-		index.insert(
-			named_field,
-			Item {
-				id: named_field,
-				crate_id: 0,
-				name: Some("label".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::StructField(Type::Generic("String".into())),
-			},
-		);
-
-		index.insert(
-			unspecified_variant,
-			Item {
-				id: unspecified_variant,
-				crate_id: 0,
-				name: Some("Unspecified".into()),
-				span: None,
-				visibility: Visibility::Public,
-				docs: None,
-				links: HashMap::new(),
-				attrs: Vec::new(),
-				deprecation: None,
-				inner: ItemEnum::Variant(Variant {
-					kind: VariantKind::Plain,
-					discriminant: None,
-				}),
-			},
-		);
-
-		Crate {
-			root,
-			crate_version: Some("0.1.0".into()),
-			includes_private: false,
-			index,
-			paths: HashMap::new(),
-			external_crates: HashMap::new(),
-			target: Target {
-				triple: "test-target".into(),
-				target_features: Vec::new(),
-			},
-			format_version: 0,
-		}
+		load_fixture("widget_crate")
 	}
+
+	// Removed 400+ lines of manual HashMap construction - now using real rustdoc JSON from tests/fixtures/widget_crate/
+	// If you need to regenerate the fixture:
+	// cd crates/libruskel/tests/fixtures/widget_crate && cargo rustdoc -Z unstable-options --output-format json -- --document-private-items
+	// cp target/doc/widget_crate.json rustdoc.json
 
 	#[allow(clippy::needless_pass_by_value)]
 	fn render_allowing_format_errors(renderer: Renderer, crate_data: &Crate) -> String {
@@ -1554,17 +1138,11 @@ mod tests {
 					crate_data,
 					filter_matched: false,
 				};
-				let mut composed = String::new();
-				if let Some(frontmatter) = &renderer.frontmatter
-					&& let Some(prefix) = frontmatter.render() {
-					composed.push_str(&prefix);
-				}
-				composed.push_str(&state.render_item(
+				state.render_item(
 					"",
 					super::must_get(crate_data, &crate_data.root),
 					false,
-				));
-				composed
+				)
 			}
 			Err(err) => panic!("unexpected render failure: {err}"),
 		}
@@ -1641,7 +1219,7 @@ mod tests {
 
 		assert!(rendered.contains("enum Palette"));
 		assert!(rendered.contains("Named"));
-		assert!(rendered.contains("pub label: String"));
+		assert!(rendered.contains("label: String")); // Enum variant fields don't have `pub` - they inherit the enum's visibility
 		assert!(!rendered.contains("Unspecified"));
 	}
 
@@ -1741,64 +1319,5 @@ mod tests {
 		assert!(output.contains("impl Widget {"));
 		assert!(output.contains("fn render"));
 		assert!(output.contains("fn internal_helper"));
-	}
-
-	#[test]
-	fn frontmatter_inserts_target_visibility_and_path() {
-		let crate_data = fixture_crate();
-		let frontmatter = FrontmatterConfig::for_target("fixture::Widget")
-			.with_filter(Some("fixture::Widget".into()));
-		let output = render_allowing_format_errors(
-			Renderer::new().with_frontmatter(frontmatter),
-			&crate_data,
-		);
-
-		assert!(output.starts_with(
-			"// Ruskel skeleton - syntactically valid Rust with implementation omitted."
-		));
-		assert!(output.contains("target=fixture::Widget"));
-		assert!(output.contains("path=fixture::Widget"));
-		assert!(output.contains("visibility=public"));
-		assert!(output.contains("auto_impls=false"));
-		assert!(output.contains("blanket_impls=false"));
-		assert!(!output.contains("ruskel::frontmatter"));
-		assert!(!output.contains("validity:"));
-	}
-
-	#[test]
-	fn frontmatter_can_be_disabled() {
-		let crate_data = fixture_crate();
-		let output = render_allowing_format_errors(Renderer::new(), &crate_data);
-
-		assert!(!output.starts_with(
-			"// Ruskel skeleton - syntactically valid Rust with implementation omitted."
-		));
-	}
-
-	#[test]
-	fn frontmatter_lists_search_hits_with_domains() {
-		let crate_data = fixture_crate();
-		let hits = vec![FrontmatterHit {
-			path: "fixture::Widget".into(),
-			domains: SearchDomain::NAMES,
-		}];
-		let search_meta = FrontmatterSearch {
-			query: "Widget".into(),
-			domains: SearchDomain::NAMES | SearchDomain::DOCS,
-			case_sensitive: false,
-			expand_containers: true,
-			hits,
-		};
-		let frontmatter = FrontmatterConfig::for_target("fixture")
-			.with_filter(Some("fixture".into()))
-			.with_search(search_meta);
-		let output = Renderer::new().with_frontmatter(frontmatter);
-		let output = render_allowing_format_errors(output, &crate_data);
-
-		assert!(output.contains(
-			"// search: query=\"Widget\"; case_sensitive=false; domains=name, doc; expand_containers=true"
-		));
-		assert!(output.contains("// hits (1):"));
-		assert!(output.contains("//   - fixture::Widget [name]"));
 	}
 }

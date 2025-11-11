@@ -24,10 +24,6 @@ pub struct RuskelSkeletonTool {
 	#[serde(default)]
 	pub search_spec: Option<Vec<SearchSpecParam>>,
 
-	/// Include frontmatter comments describing the invocation context.
-	#[serde(default = "default_frontmatter_enabled")]
-	pub frontmatter: bool,
-
 	/// Include item names when evaluating search matches.
 	#[serde(default)]
 	pub search_names: bool,
@@ -136,10 +132,8 @@ impl RuskelServer {
 	/// - Pass `search="pattern"` (optionally with `search_spec=[…]`) to restrict output to matched
 	///   items instead of rendering the entire target.
 	/// - Pass `direct_match_only=true` to keep container matches focused on the exact hits.
-	/// - Pass `frontmatter=false` when you need the raw Rust skeleton without the leading comment
-	///   block summarising context.
 	async fn ruskel(&self, _ctx: &ServerCtx, params: RuskelSkeletonTool) -> Result<CallToolResult> {
-		let ruskel = self.ruskel.clone().with_frontmatter(params.frontmatter);
+		let ruskel = self.ruskel.clone();
 
 		if let Some(query) = params
 			.search
@@ -264,10 +258,6 @@ impl RuskelServer {
 			}
 		}
 	}
-}
-
-const fn default_frontmatter_enabled() -> bool {
-	true
 }
 
 /// Serve the ruskel MCP API over TCP or stdio depending on configuration.

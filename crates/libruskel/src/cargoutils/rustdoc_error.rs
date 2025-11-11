@@ -1,5 +1,5 @@
-use crate::error::RuskelError;
 use super::config::is_rustup_available;
+use crate::error::RuskelError;
 
 /// Maximum number of characters from rustdoc stderr included in failure reports.
 const MAX_STDERR_CHARS: usize = 8_192;

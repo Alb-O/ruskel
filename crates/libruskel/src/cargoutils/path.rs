@@ -8,9 +8,9 @@ use rustdoc_json::PackageTarget;
 use rustdoc_types::Crate;
 use tempfile::TempDir;
 
-use crate::error::{Result, RuskelError, convert_cargo_error};
 use super::config::create_quiet_cargo_config;
 use super::manifest::generate_dummy_manifest;
+use crate::error::{Result, RuskelError, convert_cargo_error};
 
 /// A path to a crate. This can be a directory on the filesystem or a temporary directory.
 #[derive(Debug)]
@@ -107,8 +107,9 @@ impl CargoPath {
 			}
 		}
 
-		let json_path =
-			build_result.map_err(|err| super::rustdoc_error::map_rustdoc_build_error(&err, &captured_stderr, silent))?;
+		let json_path = build_result.map_err(|err| {
+			super::rustdoc_error::map_rustdoc_build_error(&err, &captured_stderr, silent)
+		})?;
 		let json_content = fs::read_to_string(&json_path)?;
 		let crate_data: Crate = serde_json::from_str(&json_content).map_err(|e| {
             let update_msg = if super::config::is_rustup_available() {
@@ -208,7 +209,10 @@ impl CargoPath {
 	}
 
 	/// Find a package in the current workspace by name.
-	pub(super) fn find_workspace_package(&self, module_name: &str) -> Result<Option<super::resolved_target::ResolvedTarget>> {
+	pub(super) fn find_workspace_package(
+		&self,
+		module_name: &str,
+	) -> Result<Option<super::resolved_target::ResolvedTarget>> {
 		let workspace_manifest_path = self.manifest_path()?;
 
 		// Try both hyphenated and underscored versions
@@ -227,7 +231,10 @@ impl CargoPath {
 			let package_name = package.name().as_str();
 			if package_name == module_name || package_name == alt_name {
 				let package_path = package.manifest_path().parent().unwrap().to_path_buf();
-				return Ok(Some(super::resolved_target::ResolvedTarget::new(Self::Path(package_path), &[])));
+				return Ok(Some(super::resolved_target::ResolvedTarget::new(
+					Self::Path(package_path),
+					&[],
+				)));
 			}
 		}
 		Ok(None)
@@ -276,8 +283,9 @@ pub fn create_dummy_crate(
 
 #[cfg(test)]
 mod tests {
-	use super::*;
 	use tempfile::tempdir;
+
+	use super::*;
 
 	#[test]
 	fn test_create_dummy_crate() -> Result<()> {

@@ -787,7 +787,9 @@ impl<'a> IndexBuilder<'a> {
 			(ItemEnum::StructField(_), SearchItemKind::Field) => {
 				Some(signature::field_signature(item))
 			}
-			(ItemEnum::Struct(_), SearchItemKind::Struct) => Some(signature::struct_signature(item)),
+			(ItemEnum::Struct(_), SearchItemKind::Struct) => {
+				Some(signature::struct_signature(item))
+			}
 			(ItemEnum::Union(_), SearchItemKind::Union) => Some(signature::union_signature(item)),
 			(ItemEnum::Enum(_), SearchItemKind::Enum) => Some(signature::enum_signature(item)),
 			(ItemEnum::Trait(_), SearchItemKind::Trait) => Some(signature::trait_signature(item)),
@@ -800,7 +802,9 @@ impl<'a> IndexBuilder<'a> {
 			(ItemEnum::Constant { .. }, SearchItemKind::Constant) => {
 				Some(signature::constant_signature(item))
 			}
-			(ItemEnum::Static(_), SearchItemKind::Static) => Some(signature::static_signature(item)),
+			(ItemEnum::Static(_), SearchItemKind::Static) => {
+				Some(signature::static_signature(item))
+			}
 			(ItemEnum::AssocConst { .. }, SearchItemKind::AssocConst) => {
 				Some(signature::assoc_const_signature(item))
 			}
@@ -815,17 +819,17 @@ impl<'a> IndexBuilder<'a> {
 			(ItemEnum::Primitive(_), SearchItemKind::Primitive) => {
 				Some(signature::primitive_signature(item))
 			}
-			(ItemEnum::Module(_), SearchItemKind::Module) => Some(signature::module_signature(item)),
+			(ItemEnum::Module(_), SearchItemKind::Module) => {
+				Some(signature::module_signature(item))
+			}
 			(ItemEnum::Module(_), SearchItemKind::Crate) => {
 				use crate::crateutils::render_name;
 				Some(render_name(item))
 			}
 			(ItemEnum::Variant(variant), SearchItemKind::EnumVariant) => {
 				let field_lookup = |field_id: &Id| {
-					self.crate_data
-						.index
-						.get(field_id)
-						.and_then(|field_item| match &field_item.inner {
+					self.crate_data.index.get(field_id).and_then(|field_item| {
+						match &field_item.inner {
 							ItemEnum::StructField(ty) => {
 								let name = field_item.name.as_deref().unwrap_or("_");
 								if matches!(variant.kind, rustdoc_types::VariantKind::Struct { .. })
@@ -836,7 +840,8 @@ impl<'a> IndexBuilder<'a> {
 								}
 							}
 							_ => None,
-						})
+						}
+					})
 				};
 				Some(signature::variant_signature(item, variant, field_lookup))
 			}
@@ -949,8 +954,8 @@ mod tests {
 	use std::collections::HashMap;
 
 	use rustdoc_types::{
-		Crate, Function, FunctionSignature, Id, Impl, Item,
-		ItemEnum, Module, Path, Struct, StructKind, Target, Trait, Type, Visibility,
+		Crate, Function, FunctionSignature, Id, Impl, Item, ItemEnum, Module, Path, Struct,
+		StructKind, Target, Trait, Type, Visibility,
 	};
 
 	use super::*;

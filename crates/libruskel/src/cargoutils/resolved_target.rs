@@ -1,13 +1,13 @@
 use std::path::{Component, Path, PathBuf};
 use std::{env, fs};
 
-use semver::Version;
 use rustdoc_types::Crate;
+use semver::Version;
 
+use super::manifest::to_import_name;
+use super::path::{CargoPath, create_dummy_crate};
 use crate::error::{Result, RuskelError};
 use crate::target::{Entrypoint, Target};
-use super::path::{CargoPath, create_dummy_crate};
-use super::manifest::to_import_name;
 
 /// A resolved Rust package or module target.
 #[derive(Debug)]
@@ -242,9 +242,11 @@ pub fn resolve_target(target_str: &str, offline: bool) -> Result<ResolvedTarget>
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use tempfile::TempDir;
 	use std::path::PathBuf;
+
+	use tempfile::TempDir;
+
+	use super::*;
 
 	enum ExpectedResult {
 		Path(PathBuf),

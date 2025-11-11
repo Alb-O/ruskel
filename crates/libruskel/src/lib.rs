@@ -13,15 +13,15 @@
 //! You must have the nightly Rust toolchain installed to use (but not to install) Ruskel.
 
 /// Helper utilities for querying Cargo metadata and managing crate sources.
-pub mod cargo;
-/// Utilities for normalising rustdoc structures before rendering.
-mod crateutils;
+pub mod cargoutils;
+/// Utilities for rendering items and types in skeleton code.
+pub mod crateutils;
 /// Error types exposed by the libruskel crate.
 mod error;
 /// Identifier helpers shared across rendering code.
 mod keywords;
 /// Rendering logic that turns rustdoc data into skeleton code.
-mod render;
+pub mod render;
 /// Public API surface for driving the renderer.
 mod ruskel;
 /// Search and indexing utilities used by the CLI.
@@ -37,7 +37,7 @@ mod testutils;
 pub use ruskel::Ruskel;
 
 pub use crate::error::{Result, RuskelError};
-pub use crate::render::Renderer;
+pub use crate::render::{Renderer, RenderSelection};
 pub use crate::search::{
 	ListItem, SearchDomain, SearchIndex, SearchItemKind, SearchOptions, SearchPathSegment,
 	SearchResponse, SearchResult, describe_domains,

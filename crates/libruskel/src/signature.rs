@@ -180,7 +180,14 @@ pub fn assoc_const_signature(item: &Item) -> String {
 
 /// Render an associated type signature.
 pub fn assoc_type_signature(item: &Item) -> String {
-	let (_generics, bounds, type_) = extract_item!(item, ItemEnum::AssocType { generics, bounds, type_ });
+	let (_generics, bounds, type_) = extract_item!(
+		item,
+		ItemEnum::AssocType {
+			generics,
+			bounds,
+			type_
+		}
+	);
 	if let Some(ty) = type_ {
 		format!("type {} = {}", render_name(item), render_type(ty))
 	} else if !bounds.is_empty() {
@@ -257,7 +264,11 @@ pub fn field_signature(item: &Item) -> String {
 }
 
 /// Render an enum variant signature (including fields if present).
-pub fn variant_signature(item: &Item, variant: &Variant, field_lookup: impl Fn(&rustdoc_types::Id) -> Option<String>) -> String {
+pub fn variant_signature(
+	item: &Item,
+	variant: &Variant,
+	field_lookup: impl Fn(&rustdoc_types::Id) -> Option<String>,
+) -> String {
 	let mut signature = render_name(item);
 	match &variant.kind {
 		rustdoc_types::VariantKind::Plain => {}
@@ -271,10 +282,7 @@ pub fn variant_signature(item: &Item, variant: &Variant, field_lookup: impl Fn(&
 			signature.push(')');
 		}
 		rustdoc_types::VariantKind::Struct { fields, .. } => {
-			let parts: Vec<String> = fields
-				.iter()
-				.filter_map(&field_lookup)
-				.collect();
+			let parts: Vec<String> = fields.iter().filter_map(&field_lookup).collect();
 			signature.push_str(" { ");
 			signature.push_str(&parts.join(", "));
 			signature.push_str(" }");

@@ -1,7 +1,9 @@
 //! Utility helpers shared across integration tests for exercising Ruskel rendering.
-// Dead code detection breaks here, because the integration test crates all use a disjoint set of
-// the pub items.
-#![allow(dead_code)]
+
+#![allow(
+	dead_code,
+	reason = "Integration test crates all use a disjoint set of the pub items."
+)]
 
 use std::fs;
 

@@ -7,8 +7,7 @@
 //!
 //! Ruskel works by first fetching all dependencies, then using the nightly Rust toolchain
 //! to generate JSON documentation data. This data is then parsed and rendered into
-//! the skeletonized format. The skeletonized code is then formatted with rustfmt, and optionally
-//! has syntax highlighting applied.
+//! the skeletonized format. The skeletonized code is then formatted with rustfmt.
 //!
 //!
 //! You must have the nightly Rust toolchain installed to use (but not to install) Ruskel.
@@ -21,7 +20,6 @@ mod crateutils;
 mod error;
 /// Frontmatter formatting and configuration helpers.
 mod frontmatter;
-pub mod highlight;
 /// Identifier helpers shared across rendering code.
 mod keywords;
 /// Rendering logic that turns rustdoc data into skeleton code.
@@ -30,8 +28,13 @@ mod render;
 mod ruskel;
 /// Search and indexing utilities used by the CLI.
 pub mod search;
+/// Signature rendering utilities for compact item declarations.
+mod signature;
 /// Target parsing helpers for user-provided specifications.
 mod target;
+/// Test utilities shared across test modules.
+#[cfg(test)]
+mod testutils;
 
 pub use ruskel::Ruskel;
 

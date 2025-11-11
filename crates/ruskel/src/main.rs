@@ -1,36 +1,14 @@
 //! Command-line interface for the `ruskel` API skeleton generator.
 
 use std::error::Error;
-use std::fmt::{self, Display, Formatter};
 use std::io::{self, IsTerminal, Write};
 use std::process::{self, Command, Stdio};
 use std::{env, thread};
 
 use clap::{Parser, ValueEnum};
-use libruskel::{Ruskel, SearchDomain, SearchOptions, highlight};
+use libruskel::{Ruskel, SearchDomain, SearchOptions};
 use shell_words::split;
 use tokio::runtime::Runtime;
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-/// Controls when ANSI coloring is applied to CLI output.
-enum ColorMode {
-	/// Detect terminal capabilities automatically.
-	Auto,
-	/// Always emit ANSI escape sequences.
-	Always,
-	/// Never include color sequences.
-	Never,
-}
-
-impl Display for ColorMode {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Auto => write!(f, "auto"),
-			Self::Always => write!(f, "always"),
-			Self::Never => write!(f, "never"),
-		}
-	}
-}
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// Tracing verbosity levels supported when running as an MCP server.
@@ -145,10 +123,6 @@ struct Cli {
 	#[arg(long, value_delimiter = ',')]
 	features: Vec<String>,
 
-	/// Colorize output
-	#[arg(long, default_value_t = ColorMode::Auto, env = "RUSKEL_COLOR")]
-	color: ColorMode,
-
 	/// Disable paging
 	#[arg(long, default_value_t = false)]
 	no_page: bool,
@@ -231,7 +205,6 @@ fn run_mcp(cli: &Cli) -> Result<(), Box<dyn Error>> {
 		|| cli.no_default_features
 		|| cli.all_features
 		|| !cli.features.is_empty()
-		|| !matches!(cli.color, ColorMode::Auto)
 		|| cli.no_page
 	{
 		return Err(
@@ -259,12 +232,6 @@ fn run_mcp(cli: &Cli) -> Result<(), Box<dyn Error>> {
 
 /// Render a skeleton locally and stream it to stdout or a pager.
 fn run_cmdline(cli: &Cli) -> Result<(), Box<dyn Error>> {
-	let should_highlight = match cli.color {
-		ColorMode::Never => false,
-		ColorMode::Always => true,
-		ColorMode::Auto => io::stdout().is_terminal(),
-	};
-
 	let rs = Ruskel::new()
 		.with_offline(cli.offline)
 		.with_auto_impls(cli.auto_impls)
@@ -276,10 +243,10 @@ fn run_cmdline(cli: &Cli) -> Result<(), Box<dyn Error>> {
 	}
 
 	if let Some(query) = cli.search.as_deref() {
-		return run_search(cli, &rs, query, should_highlight);
+		return run_search(cli, &rs, query);
 	}
 
-	let mut output = if cli.raw {
+	let output = if cli.raw {
 		rs.raw_json(
 			&cli.target,
 			cli.no_default_features,
@@ -296,11 +263,6 @@ fn run_cmdline(cli: &Cli) -> Result<(), Box<dyn Error>> {
 			cli.private,
 		)?
 	};
-
-	// Apply highlighting if enabled and not raw output
-	if should_highlight && !cli.raw {
-		output = highlight::highlight_code(&output)?;
-	}
 
 	if io::stdout().is_terminal() && !cli.no_page {
 		page_output(output)?;
@@ -402,12 +364,7 @@ fn run_list(cli: &Cli, rs: &Ruskel) -> Result<(), Box<dyn Error>> {
 }
 
 /// Execute the search flow and print the filtered skeleton to stdout.
-fn run_search(
-	cli: &Cli,
-	rs: &Ruskel,
-	query: &str,
-	should_highlight: bool,
-) -> Result<(), Box<dyn Error>> {
+fn run_search(cli: &Cli, rs: &Ruskel, query: &str) -> Result<(), Box<dyn Error>> {
 	if cli.raw {
 		return Err("--raw cannot be combined with --search".into());
 	}
@@ -433,10 +390,7 @@ fn run_search(
 		return Ok(());
 	}
 
-	let mut output = response.rendered;
-	if should_highlight {
-		output = highlight::highlight_code(&output)?;
-	}
+	let output = response.rendered;
 
 	if io::stdout().is_terminal() && !cli.no_page {
 		page_output(output)?;

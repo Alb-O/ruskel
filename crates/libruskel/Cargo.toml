@@ -23,7 +23,6 @@ rustdoc-json = "0.9.7"
 rustdoc-types = "0.55.0"
 semver = "1.0.26"
 serde_json = "1.0.142"
-syntect = { version = "5.2.0", default-features = false, features = ["default-syntaxes", "default-themes", "parsing", "regex-onig"] }
 tempfile = "3.20.0"
 thiserror = "2.0.14"
 

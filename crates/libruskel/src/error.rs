@@ -28,10 +28,6 @@ pub enum RuskelError {
 	#[error("Formatting error: {0}")]
 	Format(String),
 
-	/// Indicates an error occurred during syntax highlighting.
-	#[error("Highlighting error: {0}")]
-	Highlight(String),
-
 	/// The specified filter did not match any items.
 	#[error("Filter '{0}' did not match any items")]
 	FilterNotMatched(String),
@@ -59,12 +55,6 @@ pub enum RuskelError {
 	/// A catch-all for other Cargo-related errors.
 	#[error("Cargo error: {0}")]
 	CargoError(String),
-}
-
-impl From<syntect::Error> for RuskelError {
-	fn from(err: syntect::Error) -> Self {
-		Self::Highlight(err.to_string())
-	}
 }
 
 impl From<serde_json::Error> for RuskelError {

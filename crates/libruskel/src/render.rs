@@ -1136,29 +1136,14 @@ mod tests {
 	use std::slice;
 
 	use rustdoc_types::{
-		Abi, Crate, Function, FunctionHeader, FunctionSignature, Generics, Id, Impl, Item,
+		Crate, Function, FunctionSignature, Id, Impl, Item,
 		ItemEnum, Module, Path, Struct, StructKind, Target, Type, Variant, VariantKind, Visibility,
 	};
 
 	use super::*;
 	use crate::frontmatter::{FrontmatterConfig, FrontmatterHit, FrontmatterSearch};
 	use crate::search::{SearchDomain, SearchIndex, SearchOptions, build_render_selection};
-
-	fn empty_generics() -> Generics {
-		Generics {
-			params: Vec::new(),
-			where_predicates: Vec::new(),
-		}
-	}
-
-	fn default_header() -> FunctionHeader {
-		FunctionHeader {
-			is_const: false,
-			is_unsafe: false,
-			is_async: false,
-			abi: Abi::Rust,
-		}
-	}
+	use crate::testutils::{default_header, empty_generics};
 
 	fn fixture_crate() -> Crate {
 		let root = Id(0);

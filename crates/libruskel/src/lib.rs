@@ -35,11 +35,9 @@ mod target;
 
 pub use ruskel::Ruskel;
 
-pub use crate::{
-    error::{Result, RuskelError},
-    render::Renderer,
-    search::{
-        ListItem, SearchDomain, SearchIndex, SearchItemKind, SearchOptions, SearchPathSegment,
-        SearchResponse, SearchResult, describe_domains,
-    },
+pub use crate::error::{Result, RuskelError};
+pub use crate::render::Renderer;
+pub use crate::search::{
+	ListItem, SearchDomain, SearchIndex, SearchItemKind, SearchOptions, SearchPathSegment,
+	SearchResponse, SearchResult, describe_domains,
 };

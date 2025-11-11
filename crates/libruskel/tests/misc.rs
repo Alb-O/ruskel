@@ -4,48 +4,48 @@ mod utils;
 
 #[cfg(test)]
 mod tests {
-    use super::utils::*;
-    #[test]
-    fn test_render_constant() {
-        rt(
-            r#"
+	use super::utils::*;
+	#[test]
+	fn test_render_constant() {
+		rt(
+			r#"
                 /// This is a documented constant.
                 pub const CONSTANT: u32 = 42;
                 const PRIVATE_CONSTANT: &str = "Hello, world!";
             "#,
-            r#"
+			r#"
                 /// This is a documented constant.
                 pub const CONSTANT: u32 = 42;
             "#,
-        );
-        rt_priv_idemp(
-            r#"
+		);
+		rt_priv_idemp(
+			r#"
                 /// This is a documented constant.
                 pub const CONSTANT: u32 = 42;
                 const PRIVATE_CONSTANT: &str = "Hello, world!";
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_render_imports() {
-        rt(
-            r#"
+	#[test]
+	fn test_render_imports() {
+		rt(
+			r#"
                 use std::collections::HashMap;
                 pub use std::rc::Rc;
                 pub use std::sync::{Arc, Mutex};
             "#,
-            r#"
+			r#"
                 pub use std::rc::Rc;
                 pub use std::sync::Arc;
                 pub use std::sync::Mutex;
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_render_imports_inline() {
-        let input = r#"
+	#[test]
+	fn test_render_imports_inline() {
+		let input = r#"
                 mod private {
                     pub struct PrivateStruct;
                 }
@@ -53,28 +53,28 @@ mod tests {
                 pub use private::PrivateStruct;
             "#;
 
-        rt(
-            input,
-            r#"
+		rt(
+			input,
+			r#"
                 pub struct PrivateStruct;
             "#,
-        );
-        rt_private(
-            input,
-            r#"
+		);
+		rt_private(
+			input,
+			r#"
                 mod private {
                     pub struct PrivateStruct;
                 }
 
                 pub struct PrivateStruct;
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_render_type_alias_with_bounds() {
-        rt_idemp(
-            r#"
+	#[test]
+	fn test_render_type_alias_with_bounds() {
+		rt_idemp(
+			r#"
             pub trait Trait<T> {
                 fn as_ref(&self) -> &T;
             }
@@ -83,13 +83,13 @@ mod tests {
 
             pub fn use_alias<T: 'static>(value: Box<Alias<T>>) -> &'static T { }
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_render_type_alias() {
-        rt_idemp(
-            r#"
+	#[test]
+	fn test_render_type_alias() {
+		rt_idemp(
+			r#"
                 /// A simple type alias
                 pub type SimpleAlias = Vec<String>;
 
@@ -99,21 +99,21 @@ mod tests {
                 /// A type alias with generics and where clause
                 pub type ComplexAlias<T, U> where T: Clone, U: Default = Result<Vec<(T, U)>, Box<dyn std::error::Error>>;
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_reserved_word() {
-        rt_idemp(
-            r#"
+	#[test]
+	fn test_reserved_word() {
+		rt_idemp(
+			r#"
                 pub fn r#try() { }
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_macro_with_reserved_name() {
-        let source = r#"
+	#[test]
+	fn test_macro_with_reserved_name() {
+		let source = r#"
             /// A macro named try (reserved keyword)
             #[macro_export]
             macro_rules! r#try {
@@ -126,7 +126,7 @@ mod tests {
             }
         "#;
 
-        let expected_output = r#"
+		let expected_output = r#"
             /// A macro named try (reserved keyword)
             #[macro_export]
             macro_rules! r#try {
@@ -134,12 +134,12 @@ mod tests {
             }
         "#;
 
-        rt(source, expected_output);
-    }
+		rt(source, expected_output);
+	}
 
-    #[test]
-    fn test_render_macro() {
-        let source = r#"
+	#[test]
+	fn test_render_macro() {
+		let source = r#"
             /// A simple macro for creating a vector
             #[macro_export]
             macro_rules! myvec {
@@ -162,7 +162,7 @@ mod tests {
             }
         "#;
 
-        let expected_output = r#"
+		let expected_output = r#"
             /// A simple macro for creating a vector
             #[macro_export]
             macro_rules! myvec {
@@ -170,12 +170,12 @@ mod tests {
             }
         "#;
 
-        rt(source, expected_output);
-    }
+		rt(source, expected_output);
+	}
 
-    #[test]
-    fn test_render_macro_in_module() {
-        let source = r#"
+	#[test]
+	fn test_render_macro_in_module() {
+		let source = r#"
             pub mod macros {
                 /// A public macro in a module
                 #[macro_export]
@@ -194,8 +194,8 @@ mod tests {
             }
         "#;
 
-        // #[macro_export] pulls the macro to the top of the crate
-        let expected_output = r#"
+		// #[macro_export] pulls the macro to the top of the crate
+		let expected_output = r#"
             pub mod macros {
             }
             /// A public macro in a module
@@ -205,12 +205,12 @@ mod tests {
             }
         "#;
 
-        rt(source, expected_output);
-    }
+		rt(source, expected_output);
+	}
 
-    #[test]
-    fn test_render_proc_macro() {
-        let source = r#"
+	#[test]
+	fn test_render_proc_macro() {
+		let source = r#"
             extern crate proc_macro;
 
             use proc_macro::TokenStream;
@@ -236,7 +236,7 @@ mod tests {
             }
         "#;
 
-        let expected_output = r#"
+		let expected_output = r#"
             /// Expands to the function `answer` that returns `42`.
             #[proc_macro]
             pub fn make_answer(input: proc_macro::TokenStream) -> proc_macro::TokenStream {}
@@ -250,12 +250,12 @@ mod tests {
             pub fn route(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {}
         "#;
 
-        rt_procmacro(source, expected_output);
-    }
+		rt_procmacro(source, expected_output);
+	}
 
-    #[test]
-    fn test_render_proc_macro_with_attributes() {
-        let source = r#"
+	#[test]
+	fn test_render_proc_macro_with_attributes() {
+		let source = r#"
             extern crate proc_macro;
             use proc_macro::TokenStream;
 
@@ -268,7 +268,7 @@ mod tests {
             pub fn debug_format(attr: TokenStream, item: TokenStream) -> TokenStream {}
         "#;
 
-        let expected_output = r#"
+		let expected_output = r#"
             /// A derive macro for generating Debug implementations.
             #[proc_macro_derive(MyDebug, attributes(debug_format))]
             pub fn MyDebug(input: proc_macro::TokenStream) -> proc_macro::TokenStream {}
@@ -278,15 +278,15 @@ mod tests {
             pub fn debug_format(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {}
         "#;
 
-        rt_procmacro(source, expected_output);
-    }
+		rt_procmacro(source, expected_output);
+	}
 
-    #[test]
-    fn test_use_with_reserved_keyword() {
-        // Test that rustdoc doesn't output reserved keywords without escaping
-        // This should demonstrate the fix by not including invalid `use` statements
-        rt(
-            r#"
+	#[test]
+	fn test_use_with_reserved_keyword() {
+		// Test that rustdoc doesn't output reserved keywords without escaping
+		// This should demonstrate the fix by not including invalid `use` statements
+		rt(
+			r#"
                 pub mod test_mod {
                     pub fn r#try() {}
                     pub fn r#match() {}
@@ -294,7 +294,7 @@ mod tests {
                 pub use test_mod::r#try;
                 pub use test_mod::r#match;
             "#,
-            r#"
+			r#"
                 pub mod test_mod {
                     pub fn r#try() {}
                     pub fn r#match() {}
@@ -302,18 +302,18 @@ mod tests {
                 pub fn r#try() {}
                 pub fn r#match() {}
             "#,
-        );
-    }
+		);
+	}
 
-    #[test]
-    fn test_struct_field_docs() {
-        rt_idemp(
-            r#"
+	#[test]
+	fn test_struct_field_docs() {
+		rt_idemp(
+			r#"
                 pub struct MyStruct {
                     /// This is a documented field.
                     pub field: i32,
                 }
             "#,
-        );
-    }
+		);
+	}
 }

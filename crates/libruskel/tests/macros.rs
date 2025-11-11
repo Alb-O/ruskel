@@ -4,11 +4,11 @@ mod utils;
 
 #[cfg(test)]
 mod tests {
-    use super::utils::*;
-    #[test]
-    fn test_macro_expansion_with_dollar_signs() {
-        // This test reproduces the issue with $ signs in macro expansions
-        let source = r#"
+	use super::utils::*;
+	#[test]
+	fn test_macro_expansion_with_dollar_signs() {
+		// This test reproduces the issue with $ signs in macro expansions
+		let source = r#"
             use std::simd::Simd;
 
             #[macro_export]
@@ -30,10 +30,10 @@ mod tests {
             define_simd_alias!(f32x1, 1);
         "#;
 
-        // The expected output should show the macro definitions
-        // but not the unexpanded macro invocations. Macro-generated items should
-        // remain visible when they are part of the public API.
-        let expected_output = r#"
+		// The expected output should show the macro definitions
+		// but not the unexpanded macro invocations. Macro-generated items should
+		// remain visible when they are part of the public API.
+		let expected_output = r#"
             pub type f32x1 = Simd<f32, 1>;
 
             #[macro_export]
@@ -47,14 +47,14 @@ mod tests {
             }
         "#;
 
-        rt(source, expected_output);
-    }
+		rt(source, expected_output);
+	}
 
-    #[test]
-    fn test_macro_expansion_in_type_alias() {
-        // Test case for macro expansions that generate type aliases
-        // The macro invocation itself should not appear in the output
-        let source = r#"
+	#[test]
+	fn test_macro_expansion_in_type_alias() {
+		// Test case for macro expansions that generate type aliases
+		// The macro invocation itself should not appear in the output
+		let source = r#"
             use std::simd::Simd;
 
             #[macro_export]
@@ -67,14 +67,14 @@ mod tests {
             simd_bytes_type!(4, 8);
         "#;
 
-        // Only the macro definition should appear, not the expansion
-        let expected_output = r#"
+		// Only the macro definition should appear, not the expansion
+		let expected_output = r#"
             #[macro_export]
             macro_rules! simd_bytes_type {
                 ($size:expr, $elems:expr) => { ... };
             }
         "#;
 
-        rt(source, expected_output);
-    }
+		rt(source, expected_output);
+	}
 }

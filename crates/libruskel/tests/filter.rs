@@ -4,13 +4,13 @@ use libruskel::Renderer;
 use utils::*;
 
 gen_tests! {
-    filtering, {
-        rt_custom {
-            filter_module: {
-                // Test filtering a specific module
-                // Module docs should be rendered for the filtered module
-                renderer: Renderer::default().with_filter("my_module"),
-                input: r#"
+	filtering, {
+		rt_custom {
+			filter_module: {
+				// Test filtering a specific module
+				// Module docs should be rendered for the filtered module
+				renderer: Renderer::default().with_filter("my_module"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         pub fn public_function() {}
@@ -22,20 +22,20 @@ gen_tests! {
                         pub fn other_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         //! My module docs
                         pub fn public_function() {}
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_nested_module: {
-                // Test filtering a nested module
-                // Module docs should not be rendered for parent modules
-                renderer: Renderer::default().with_filter("outer::inner"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_nested_module: {
+				// Test filtering a nested module
+				// Module docs should not be rendered for parent modules
+				renderer: Renderer::default().with_filter("outer::inner"),
+				input: r#"
                     pub mod outer {
                         //! Outer module docs
                         pub mod inner {
@@ -45,7 +45,7 @@ gen_tests! {
                         pub fn outer_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod outer {
                         pub mod inner {
                             //! Inner module docs
@@ -53,14 +53,14 @@ gen_tests! {
                         }
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_specific_item: {
-                // Test filtering a specific item within a module
-                // Module docs should not be rendered when filtering a specific item
-                renderer: Renderer::default().with_filter("my_module::MyStruct"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_specific_item: {
+				// Test filtering a specific item within a module
+				// Module docs should not be rendered when filtering a specific item
+				renderer: Renderer::default().with_filter("my_module::MyStruct"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         /// MyStruct docs
@@ -71,7 +71,7 @@ gen_tests! {
                         pub fn other_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         /// MyStruct docs
                         pub struct MyStruct {
@@ -79,14 +79,14 @@ gen_tests! {
                         }
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_trait: {
-                // Test filtering a trait
-                // Module docs should not be rendered when filtering a trait
-                renderer: Renderer::default().with_filter("my_module::MyTrait"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_trait: {
+				// Test filtering a trait
+				// Module docs should not be rendered when filtering a trait
+				renderer: Renderer::default().with_filter("my_module::MyTrait"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         /// MyTrait docs
@@ -101,7 +101,7 @@ gen_tests! {
                         }
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         /// MyTrait docs
                         pub trait MyTrait {
@@ -109,14 +109,14 @@ gen_tests! {
                         }
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_enum: {
-                // Test filtering an enum
-                // Module docs should not be rendered when filtering an enum
-                renderer: Renderer::default().with_filter("my_module::MyEnum"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_enum: {
+				// Test filtering an enum
+				// Module docs should not be rendered when filtering an enum
+				renderer: Renderer::default().with_filter("my_module::MyEnum"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         /// MyEnum docs
@@ -129,7 +129,7 @@ gen_tests! {
                         pub struct MyStruct;
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         /// MyEnum docs
                         pub enum MyEnum {
@@ -139,14 +139,14 @@ gen_tests! {
                         }
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_with_impl: {
-                // Test filtering a struct with its impl
-                // Module docs should not be rendered when filtering a struct
-                renderer: Renderer::default().with_filter("my_module::MyStruct"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_with_impl: {
+				// Test filtering a struct with its impl
+				// Module docs should not be rendered when filtering a struct
+				renderer: Renderer::default().with_filter("my_module::MyStruct"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         /// MyStruct docs
@@ -161,7 +161,7 @@ gen_tests! {
                         pub fn other_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         /// MyStruct docs
                         pub struct MyStruct;
@@ -171,14 +171,14 @@ gen_tests! {
                         }
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_impl_fn: {
-                // Test filtering a struct with its impl
-                // Module docs should not be rendered when filtering a struct
-                renderer: Renderer::default().with_filter("my_module::MyStruct::new"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_impl_fn: {
+				// Test filtering a struct with its impl
+				// Module docs should not be rendered when filtering a struct
+				renderer: Renderer::default().with_filter("my_module::MyStruct::new"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         /// MyStruct docs
@@ -195,7 +195,7 @@ gen_tests! {
                         }
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         /// MyStruct docs
                         pub struct MyStruct;
@@ -205,14 +205,14 @@ gen_tests! {
                         }
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_function: {
-                // Test filtering a function
-                // Module docs should not be rendered when filtering a function
-                renderer: Renderer::default().with_filter("my_module::my_function"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_function: {
+				// Test filtering a function
+				// Module docs should not be rendered when filtering a function
+				renderer: Renderer::default().with_filter("my_module::my_function"),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         /// my_function docs
@@ -225,20 +225,20 @@ gen_tests! {
                         pub struct MyStruct;
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         /// my_function docs
                         pub fn my_function(x: i32) -> i32 {}
                     }
                 "#
-            }
-        }
-        rt_custom {
-            filter_with_private_items: {
-                // Test filtering with private items included
-                // Module docs should be rendered for the filtered module
-                renderer: Renderer::default().with_filter("my_module").with_private_items(true),
-                input: r#"
+			}
+		}
+		rt_custom {
+			filter_with_private_items: {
+				// Test filtering with private items included
+				// Module docs should be rendered for the filtered module
+				renderer: Renderer::default().with_filter("my_module").with_private_items(true),
+				input: r#"
                     pub mod my_module {
                         //! My module docs
                         pub fn public_function() {}
@@ -250,21 +250,21 @@ gen_tests! {
                         pub fn other_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         //! My module docs
                         pub fn public_function() {}
                         fn private_function() {}
                     }
                 "#
-            }
-        }
-        rt_custom {
-            no_filter: {
-                // Test with no filter
-                // All module docs should be rendered
-                renderer: Renderer::default(),
-                input: r#"
+			}
+		}
+		rt_custom {
+			no_filter: {
+				// Test with no filter
+				// All module docs should be rendered
+				renderer: Renderer::default(),
+				input: r#"
                     //! Root module docs
                     
                     pub mod a {
@@ -277,7 +277,7 @@ gen_tests! {
                         pub struct StructInB;
                     }
                 "#,
-                output: r#"
+				output: r#"
                     //! Root module docs
                     
                     pub mod a {
@@ -290,32 +290,32 @@ gen_tests! {
                         pub struct StructInB;
                     }
                 "#
-            }
-        }
-    }
+			}
+		}
+	}
 }
 
 gen_tests! {
-    filter_error, {
-        rt_custom {
-            filter_matched: {
-                renderer: Renderer::default().with_filter("my_module"),
-                input: r#"
+	filter_error, {
+		rt_custom {
+			filter_matched: {
+				renderer: Renderer::default().with_filter("my_module"),
+				input: r#"
                     pub mod my_module {
                         pub fn my_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         pub fn my_function() {}
                     }
                 "#
-            }
-        }
-        rt_custom {
-            no_filter: {
-                renderer: Renderer::default(),
-                input: r#"
+			}
+		}
+		rt_custom {
+			no_filter: {
+				renderer: Renderer::default(),
+				input: r#"
                     pub mod my_module {
                         pub fn my_function() {}
                     }
@@ -323,7 +323,7 @@ gen_tests! {
                         pub fn other_function() {}
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         pub fn my_function() {}
                     }
@@ -331,38 +331,38 @@ gen_tests! {
                         pub fn other_function() {}
                     }
                 "#
-            }
-        }
-        rt_custom {
-            partial_match: {
-                renderer: Renderer::default().with_filter("my_module"),
-                input: r#"
+			}
+		}
+		rt_custom {
+			partial_match: {
+				renderer: Renderer::default().with_filter("my_module"),
+				input: r#"
                     pub mod my_module {
                         pub mod nested_module {
                             pub fn nested_function() {}
                         }
                     }
                 "#,
-                output: r#"
+				output: r#"
                     pub mod my_module {
                         pub mod nested_module {
                             pub fn nested_function() {}
                         }
                     }
                 "#
-            }
-        }
-        rt_err {
-            filter_not_matched: {
-                renderer: Renderer::default().with_filter("non_existent_module"),
-                input: r#"
+			}
+		}
+		rt_err {
+			filter_not_matched: {
+				renderer: Renderer::default().with_filter("non_existent_module"),
+				input: r#"
                     pub mod my_module {
                         pub fn my_function() {}
                     }
                 "#,
-                error: "Filter 'non_existent_module' did not match any items"
-            }
-        }
+				error: "Filter 'non_existent_module' did not match any items"
+			}
+		}
 
-    }
+	}
 }

@@ -5,35 +5,6 @@ use std::process::{self, Command, Stdio};
 
 use clap::{Parser, ValueEnum};
 use libruskel::{Ruskel, SearchDomain, SearchOptions};
-use tokio::runtime::Runtime;
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-/// Tracing verbosity levels supported when running as an MCP server.
-enum LogLevel {
-	/// Log only errors.
-	Error,
-	/// Log warnings and errors.
-	Warn,
-	/// Log informational messages.
-	Info,
-	/// Log debugging details.
-	Debug,
-	/// Log the most verbose, trace-level diagnostics.
-	Trace,
-}
-
-impl LogLevel {
-	/// Convert the enum into the tracing filter string expected by `EnvFilter`.
-	fn as_filter(self) -> &'static str {
-		match self {
-			Self::Error => "error",
-			Self::Warn => "warn",
-			Self::Info => "info",
-			Self::Debug => "debug",
-			Self::Trace => "trace",
-		}
-	}
-}
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// Available search domains accepted by `--search-spec`.
@@ -123,18 +94,6 @@ struct Cli {
 	/// Enable verbose mode, showing cargo output while rendering docs
 	#[arg(long, default_value_t = false)]
 	verbose: bool,
-
-	/// Run as an MCP server on stdout
-	#[arg(long, default_value_t = false)]
-	mcp: bool,
-
-	/// Host:port to bind to when running as MCP server (requires --mcp)
-	#[arg(long)]
-	addr: Option<String>,
-
-	/// Log level for tracing output (only used with --mcp --addr)
-	#[arg(long)]
-	log: Option<LogLevel>,
 }
 
 /// Ensure the nightly toolchain and rust-docs JSON component are present.
@@ -182,37 +141,6 @@ fn check_nightly_toolchain() -> Result<(), String> {
 			));
 		}
 	}
-
-	Ok(())
-}
-
-/// Launch the MCP server variant of ruskel using the provided CLI configuration.
-fn run_mcp(cli: &Cli) -> Result<(), Box<dyn Error>> {
-	// Validate that only configuration arguments are provided with --mcp
-	if cli.target != "./"
-		|| cli.raw
-		|| cli.no_default_features
-		|| cli.all_features
-		|| !cli.features.is_empty()
-	{
-		return Err(
-			"--mcp can only be used with --auto-impls, --private, --offline, and --verbose".into(),
-		);
-	}
-
-	// Create configured Ruskel instance from CLI args
-	let ruskel = Ruskel::new()
-		.with_offline(cli.offline)
-		.with_auto_impls(cli.auto_impls)
-		.with_silent(!cli.verbose);
-
-	// Run the MCP server
-	let runtime = Runtime::new()?;
-	runtime.block_on(ruskel_mcp::run_mcp_server(
-		ruskel,
-		cli.addr.clone(),
-		cli.log.map(|level| level.as_filter().to_string()),
-	))?;
 
 	Ok(())
 }
@@ -377,22 +305,7 @@ fn run_search(cli: &Cli, rs: &Ruskel, query: &str) -> Result<(), Box<dyn Error>>
 
 fn main() {
 	let cli = Cli::parse();
-
-	// Validate that --addr is only used with --mcp
-	if cli.addr.is_some() && !cli.mcp {
-		eprintln!("Error: --addr can only be used with --mcp");
-		process::exit(1);
-	}
-
-	// Validate that --log is only used with --mcp --addr
-	if cli.log.is_some() && (cli.addr.is_none() || !cli.mcp) {
-		eprintln!("Error: --log can only be used with --mcp --addr");
-		process::exit(1);
-	}
-
-	let result = if cli.mcp {
-		run_mcp(&cli)
-	} else {
+	let result = {
 		if let Err(e) = check_nightly_toolchain() {
 			eprintln!("{e}");
 			process::exit(1);

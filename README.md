@@ -62,19 +62,6 @@ controls as skeleton search. The listing honours `--private` and feature flags,
 and it conflicts with `--raw` because the output is tabular text rather than
 Rust code.
 
-### Frontmatter Metadata
-
-By default Ruskel prefixes every rendered skeleton with a concise comment block
-that documents the invocation context. The frontmatter spells out the target,
-active visibility mode, and—in search mode—the query along with matched items
-grouped by domain labels. This makes it easy to track how the skeleton was
-produced while keeping the output valid Rust code.
-
-Disable frontmatter with `--no-frontmatter` when you need pristine skeletons or
-when another tool expects raw Rust without commentary. The flag is also exposed
-through the MCP integration and library API.
-
-
 ````rust
 pub mod termsize {
     //! Termsize is a tiny crate that provides a simple
@@ -101,85 +88,6 @@ pub mod termsize {
 
 
 ---
-
-## MCP Server Mode
-
-Ruskel can run as a Model Context Protocol (MCP) server, allowing it to be used
-as a tool by AI assistants and other MCP clients.
-
-### Running as MCP Server
-
-To start Ruskel in MCP server mode:
-
-```bash
-ruskel --mcp
-```
-
-This starts the MCP server on stdout, ready to accept requests. The server exposes a single tool called `ruskel_skeleton` that generates skeletonized outlines of Rust crates.
-
-### MCP Configuration
-
-To use Ruskel with Claude Desktop or other MCP clients, add this configuration:
-
-```json
-{
-  "mcpServers": {
-    "ruskel": {
-      "command": "ruskel",
-      "args": ["--mcp"]
-    }
-  }
-}
-```
-
-Or if running from source:
-
-```json
-{
-  "mcpServers": {
-    "ruskel": {
-      "command": "cargo",
-      "args": ["run", "--", "--mcp"],
-      "cwd": "/path/to/ruskel"
-    }
-  }
-}
-```
-
-### Tool Parameters
-
-The `ruskel_skeleton` tool accepts the following parameters:
-
-- `target` (required): The crate/module to generate a skeleton for
-- `auto_impls`: Include auto-implemented traits (default: false)
-- `private`: Include private items (default: false)
-- `frontmatter`: Include comment frontmatter describing the invocation (default: true)
-- `search`: Restrict the response to matches for this query instead of rendering the entire
-  target (default: null)
-- `search_spec`: Comma-separated search domains (name, doc, signature, path). When omitted
-  name, doc, and signature are searched (default: null)
-- `search_names`: Legacy domain toggle kept for compatibility (default: false)
-- `search_docs`: Legacy domain toggle kept for compatibility (default: false)
-- `search_paths`: Legacy domain toggle kept for compatibility (default: false)
-- `search_signatures`: Legacy domain toggle kept for compatibility (default: false)
-- `search_case_sensitive`: Require exact-case matches when searching (default: false)
-- `direct_match_only`: Suppress container expansion so only direct hits are rendered (default: false)
-- `no_default_features`: Disable default features (default: false)
-- `all_features`: Enable all features (default: false)
-- `features`: Array of features to enable (default: [])
-- `quiet`: Enable quiet mode (default: false)
-- `offline`: Enable offline mode (default: false)
-
----
-
-## Community
-
-Want to contribute? Have ideas or feature requests? Come tell us about it on
-[Discord](https://discord.gg/fHmRmuBDxF). 
-
-
----
-
 
 ## Features
 

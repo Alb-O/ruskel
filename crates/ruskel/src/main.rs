@@ -39,15 +39,15 @@ struct Cli {
 	target: String,
 
 	/// Output raw JSON instead of rendered Rust code
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'r', long, default_value_t = false)]
 	raw: bool,
 
 	/// Search query used to filter the generated skeleton instead of rendering everything.
-	#[arg(long)]
+	#[arg(short = 's', long)]
 	search: Option<String>,
 
 	/// Output a structured item listing instead of rendered code.
-	#[arg(long, default_value_t = false, conflicts_with = "raw")]
+	#[arg(short = 'l', long, default_value_t = false, conflicts_with = "raw")]
 	list: bool,
 
 	/// Comma-separated list of search domains (name, doc, signature, path). Defaults to name, doc, signature.
@@ -57,42 +57,43 @@ struct Cli {
 		value_name = "DOMAIN[,DOMAIN...]",
 		default_value = "name,doc,signature"
 	)]
+	#[arg(short = 'S')]
 	search_spec: Vec<SearchSpec>,
 
 	/// Execute the search in a case sensitive manner.
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'c', long, default_value_t = false)]
 	search_case_sensitive: bool,
 
 	/// Suppress automatic expansion of matched containers when searching.
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'd', long, default_value_t = false)]
 	direct_match_only: bool,
 
 	/// Render auto-implemented traits
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'i', long, default_value_t = false)]
 	auto_impls: bool,
 
 	/// Render private items
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'p', long, default_value_t = false)]
 	private: bool,
 
 	/// Disable default features
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'n', long, default_value_t = false)]
 	no_default_features: bool,
 
 	/// Enable all features
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'a', long, default_value_t = false)]
 	all_features: bool,
 
 	/// Specify features to enable
-	#[arg(long, value_delimiter = ',')]
+	#[arg(short = 'f', long, value_delimiter = ',')]
 	features: Vec<String>,
 
 	/// Enable offline mode, ensuring Cargo will not use the network
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'o', long, default_value_t = false)]
 	offline: bool,
 
 	/// Enable verbose mode, showing cargo output while rendering docs
-	#[arg(long, default_value_t = false)]
+	#[arg(short = 'v', long, default_value_t = false)]
 	verbose: bool,
 }
 

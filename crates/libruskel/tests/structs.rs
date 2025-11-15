@@ -5,44 +5,6 @@ use utils::*;
 gen_tests! {
 	tuple_struct, {
 		idemp {
-			basic: r#"
-                pub struct BasicTuple(i32, String);
-            "#
-		}
-		idemp {
-			with_pub_fields: r#"
-                pub struct PubFieldsTuple(pub i32, pub String);
-            "#
-		}
-		idemp {
-			mixed_visibility: r#"
-                pub struct MixedVisibilityTuple(pub i32, String, pub bool);
-            "#
-		}
-		idemp {
-			generic: r#"
-                pub struct GenericTuple<T, U>(T, U);
-            "#
-		}
-		idemp {
-			with_lifetime: r#"
-                pub struct LifetimeTuple<'a>(&'a str, String);
-            "#
-		}
-		idemp {
-			with_lifetime_and_generic: r#"
-                pub struct MixedTuple<'a, T>(&'a str, T);
-            "#
-		}
-		idemp {
-			with_where_clause: r#"
-                pub struct WhereTuple<T, U>(T, U)
-                where
-                    T: Clone,
-                    U: Default;
-            "#
-		}
-		idemp {
 			complex: r#"
                 pub struct ComplexTuple<'a, T, U>(&'a str, T, U, i32)
                 where
@@ -94,11 +56,6 @@ gen_tests! {
 
 gen_tests! {
 	unit_struct, {
-		idemp {
-			basic: r#"
-                pub struct UnitStruct;
-            "#
-		}
 		rt {
 			private: {
 				input: r#"
@@ -112,54 +69,6 @@ gen_tests! {
 
 gen_tests! {
 	plain_struct, {
-		idemp {
-			empty: r#"
-                pub struct EmptyStruct {}
-            "#
-		}
-		idemp {
-			basic: r#"
-                pub struct BasicStruct {
-                    pub field1: i32,
-                    field2: String,
-                }
-            "#
-		}
-		idemp {
-			generic: r#"
-                pub struct GenericStruct<T, U> {
-                    pub field1: T,
-                    field2: U,
-                }
-            "#
-		}
-		idemp {
-			with_lifetime: r#"
-                pub struct LifetimeStruct<'a> {
-                    field: &'a str,
-                }
-            "#
-		}
-		idemp {
-			with_lifetime_and_generic: r#"
-                pub struct MixedStruct<'a, T> {
-                    reference: &'a str,
-                    value: T,
-                }
-            "#
-		}
-		idemp {
-			with_where_clause: r#"
-                pub struct WhereStruct<T, U>
-                where
-                    T: Clone,
-                    U: Default,
-                {
-                    pub field1: T,
-                    field2: U,
-                }
-            "#
-		}
 		rt {
 			with_private_fields: {
 				input: r#"

@@ -1,4 +1,4 @@
-use super::config::is_rustup_available;
+use super::is_rustup_available;
 use crate::error::RipdocError;
 
 /// Maximum number of characters from rustdoc stderr included in failure reports.

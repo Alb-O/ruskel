@@ -4,7 +4,7 @@ use std::{env, fs};
 use rustdoc_types::Crate;
 use semver::Version;
 
-use super::manifest::to_import_name;
+use super::to_import_name;
 use super::path::CargoPath;
 use super::registry::fetch_registry_crate;
 use crate::error::{Result, RipdocError};

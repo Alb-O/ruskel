@@ -79,7 +79,7 @@ impl CargoPath {
 		let mut builder = rustdoc_json::Builder::default();
 
 		// Only set toolchain if rustup is available
-		if super::config::is_rustup_available() {
+		if super::is_rustup_available() {
 			builder = builder.toolchain("nightly");
 		}
 
@@ -108,7 +108,7 @@ impl CargoPath {
 		})?;
 		let json_content = fs::read_to_string(&json_path)?;
 		let crate_data: Crate = serde_json::from_str(&json_content).map_err(|e| {
-            let update_msg = if super::config::is_rustup_available() {
+            let update_msg = if super::is_rustup_available() {
                 "try running 'rustup update nightly'"
             } else {
                 "try updating your nightly Rust toolchain"

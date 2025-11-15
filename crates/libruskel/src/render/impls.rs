@@ -153,8 +153,7 @@ pub fn render_trait(state: &RenderState, item: &Item) -> String {
 		return String::new();
 	}
 
-	let selection_active = state.selection().is_some();
-	let expand_children = state.selection_expands(&item.id);
+	let selection = super::items::SelectionView::new(state, &item.id, true);
 
 	let generics = render_generics(&trait_.generics);
 	let where_clause = render_where_clause(&trait_.generics);
@@ -178,9 +177,9 @@ pub fn render_trait(state: &RenderState, item: &Item) -> String {
 	));
 
 	for item_id in &trait_.items {
-		if !selection_active || expand_children || state.selection_context_contains(item_id) {
+		if selection.includes_child(state, item_id) {
 			let item = super::utils::must_get(state.crate_data, item_id);
-			output.push_str(&render_trait_item(state, item, expand_children));
+			output.push_str(&render_trait_item(state, item, &selection));
 		}
 	}
 
@@ -190,8 +189,12 @@ pub fn render_trait(state: &RenderState, item: &Item) -> String {
 }
 
 /// Render an item contained within a trait (method, associated type, etc.).
-pub fn render_trait_item(state: &RenderState, item: &Item, include_all: bool) -> String {
-	if !include_all && !state.selection_context_contains(&item.id) {
+fn render_trait_item(
+	state: &RenderState,
+	item: &Item,
+	selection: &super::items::SelectionView,
+) -> String {
+	if !selection.includes_child(state, &item.id) {
 		return String::new();
 	}
 	match &item.inner {

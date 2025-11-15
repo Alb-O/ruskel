@@ -1,10 +1,150 @@
-use rustdoc_types::{Item, ItemEnum, StructKind, VariantKind, Visibility};
+use rustdoc_types::{Id, Item, ItemEnum, StructKind, VariantKind, Visibility};
 
 use super::impls::{DERIVE_TRAITS, render_impl, should_render_impl};
 use super::macros::{render_macro, render_proc_macro};
 use super::state::RenderState;
-use super::utils::{must_get, ppush};
+use super::utils::{escape_path, must_get, ppush};
 use crate::crateutils::*;
+
+/// Captures how the current selection affects an item's children.
+pub(crate) struct SelectionView {
+	active: bool,
+	expands_self: bool,
+}
+
+impl SelectionView {
+	pub(crate) fn new(state: &RenderState, id: &Id, expands_when_inactive: bool) -> Self {
+		let active = state.selection().is_some();
+		let expands_self = if active {
+			state.selection_expands(id)
+		} else {
+			expands_when_inactive
+		};
+		Self {
+			active,
+			expands_self,
+		}
+	}
+
+	pub(crate) fn includes_child(&self, state: &RenderState, child_id: &Id) -> bool {
+		if !self.active {
+			return true;
+		}
+		self.expands_self || state.selection_context_contains(child_id)
+	}
+
+	fn force_children(&self) -> bool {
+		self.active && self.expands_self
+	}
+
+	fn is_active(&self) -> bool {
+		self.active
+	}
+
+	fn expands_self(&self) -> bool {
+		self.expands_self
+	}
+}
+
+/// Shared context for rendering structs with consistent generics/selection info.
+struct StructRenderContext<'a> {
+	item: &'a Item,
+	generics: String,
+	where_clause: String,
+	selection: SelectionView,
+}
+
+impl<'a> StructRenderContext<'a> {
+	fn new(state: &RenderState, item: &'a Item, generics: String, where_clause: String) -> Self {
+		Self {
+			item,
+			generics,
+			where_clause,
+			selection: SelectionView::new(state, &item.id, false),
+		}
+	}
+
+	fn item(&self) -> &Item {
+		self.item
+	}
+
+	fn generics(&self) -> &str {
+		&self.generics
+	}
+
+	fn where_clause(&self) -> &str {
+		&self.where_clause
+	}
+
+	fn selection(&self) -> &SelectionView {
+		&self.selection
+	}
+
+	fn force_children(&self) -> bool {
+		self.selection.force_children()
+	}
+}
+
+/// Shared context for rendering enums and their variants consistently.
+struct EnumRenderContext {
+	generics: String,
+	where_clause: String,
+	selection: SelectionView,
+}
+
+impl EnumRenderContext {
+	fn new(state: &RenderState, item: &Item, generics: String, where_clause: String) -> Self {
+		Self {
+			generics,
+			where_clause,
+			selection: SelectionView::new(state, &item.id, true),
+		}
+	}
+
+	fn generics(&self) -> &str {
+		&self.generics
+	}
+
+	fn where_clause(&self) -> &str {
+		&self.where_clause
+	}
+
+	fn selection(&self) -> &SelectionView {
+		&self.selection
+	}
+
+	fn should_render_variant(&self, state: &RenderState, variant_id: &Id) -> bool {
+		!self.selection().is_active()
+			|| self.selection().expands_self()
+			|| self.selection().includes_child(state, variant_id)
+	}
+
+	fn include_variant_fields(&self, state: &RenderState, variant: &Item) -> bool {
+		self.selection().expands_self()
+			|| !self.selection().is_active()
+			|| state.selection_matches(&variant.id)
+	}
+}
+
+/// Collect trait names rendered via `#[derive]` for the provided impl list.
+fn collect_inline_traits<'a>(state: &'a RenderState, impls: &[Id]) -> Vec<&'a str> {
+	let mut inline_traits = Vec::new();
+	for impl_id in impls {
+		let impl_item = must_get(state.crate_data, impl_id);
+		let impl_ = extract_item!(impl_item, ItemEnum::Impl);
+		if impl_.is_synthetic {
+			continue;
+		}
+
+		if let Some(trait_) = &impl_.trait_
+			&& let Some(name) = trait_.path.split("::").last()
+			&& DERIVE_TRAITS.contains(&name)
+		{
+			inline_traits.push(name);
+		}
+	}
+	inline_traits
+}
 
 /// Render an item into Rust source text.
 pub fn render_item(
@@ -77,95 +217,25 @@ pub fn render_struct(state: &mut RenderState, path_prefix: &str, item: &Item) ->
 		return String::new();
 	}
 
-	let selection_active = state.selection().is_some();
-	let expand_children = if selection_active {
-		state.selection_expands(&item.id)
-	} else {
-		false
-	};
-	let force_fields = selection_active && expand_children;
+	let generics = render_generics(&struct_.generics);
+	let where_clause = render_where_clause(&struct_.generics);
+	let ctx = StructRenderContext::new(state, item, generics, where_clause);
 
-	// Collect inline traits
-	let mut inline_traits = Vec::new();
-	for impl_id in &struct_.impls {
-		let impl_item = must_get(state.crate_data, impl_id);
-		let impl_ = extract_item!(impl_item, ItemEnum::Impl);
-		if impl_.is_synthetic {
-			continue;
-		}
+	let inline_traits = collect_inline_traits(state, &struct_.impls);
 
-		if let Some(trait_) = &impl_.trait_
-			&& let Some(name) = trait_.path.split("::").last()
-			&& DERIVE_TRAITS.contains(&name)
-		{
-			inline_traits.push(name);
-		}
-	}
-
-	// Add derive attribute if we found any inline traits
 	if !inline_traits.is_empty() {
 		output.push_str(&format!("#[derive({})]\n", inline_traits.join(", ")));
 	}
 
-	let generics = render_generics(&struct_.generics);
-	let where_clause = render_where_clause(&struct_.generics);
-
 	match &struct_.kind {
-		StructKind::Unit => {
-			output.push_str(&format!(
-				"{}struct {}{}{};\n\n",
-				render_vis(item),
-				render_name(item),
-				generics,
-				where_clause
-			));
-		}
+		StructKind::Unit => output.push_str(&render_struct_unit(&ctx)),
 		StructKind::Tuple(fields) => {
-			let fields_str = fields
-				.iter()
-				.filter_map(|field| {
-					field.as_ref().and_then(|id| {
-						if !expand_children && !state.selection_context_contains(id) {
-							return None;
-						}
-						let field_item = must_get(state.crate_data, id);
-						let ty = extract_item!(field_item, ItemEnum::StructField);
-						if !is_visible(state, field_item) {
-							Some("_".to_string())
-						} else {
-							Some(format!("{}{}", render_vis(field_item), render_type(ty)))
-						}
-					})
-				})
-				.collect::<Vec<_>>()
-				.join(", ");
-
-			if expand_children || !fields_str.is_empty() {
-				output.push_str(&format!(
-					"{}struct {}{}({}){};\n\n",
-					render_vis(item),
-					render_name(item),
-					generics,
-					fields_str,
-					where_clause
-				));
+			if let Some(rendered) = render_struct_tuple(state, &ctx, fields) {
+				output.push_str(&rendered);
 			}
 		}
 		StructKind::Plain { fields, .. } => {
-			output.push_str(&format!(
-				"{}struct {}{}{} {{\n",
-				render_vis(item),
-				render_name(item),
-				generics,
-				where_clause
-			));
-			for field in fields {
-				let rendered = render_struct_field(state, field, force_fields);
-				if !rendered.is_empty() {
-					output.push_str(&rendered);
-				}
-			}
-			output.push_str("}\n\n");
+			output.push_str(&render_struct_plain(state, &ctx, fields))
 		}
 	}
 
@@ -180,6 +250,75 @@ pub fn render_struct(state: &mut RenderState, path_prefix: &str, item: &Item) ->
 		}
 	}
 
+	output
+}
+
+fn render_struct_unit(ctx: &StructRenderContext) -> String {
+	format!(
+		"{}struct {}{}{};\n\n",
+		render_vis(ctx.item()),
+		render_name(ctx.item()),
+		ctx.generics(),
+		ctx.where_clause()
+	)
+}
+
+fn render_struct_tuple(
+	state: &RenderState,
+	ctx: &StructRenderContext,
+	fields: &[Option<Id>],
+) -> Option<String> {
+	let selection = ctx.selection();
+	let fields_str = fields
+		.iter()
+		.filter_map(|field| {
+			field.as_ref().and_then(|id| {
+				if !selection.includes_child(state, id) {
+					return None;
+				}
+				let field_item = must_get(state.crate_data, id);
+				let ty = extract_item!(field_item, ItemEnum::StructField);
+				if !is_visible(state, field_item) {
+					Some("_".to_string())
+				} else {
+					Some(format!("{}{}", render_vis(field_item), render_type(ty)))
+				}
+			})
+		})
+		.collect::<Vec<_>>()
+		.join(", ");
+
+	if selection.expands_self() || !fields_str.is_empty() {
+		Some(format!(
+			"{}struct {}{}({}){};\n\n",
+			render_vis(ctx.item()),
+			render_name(ctx.item()),
+			ctx.generics(),
+			fields_str,
+			ctx.where_clause()
+		))
+	} else {
+		None
+	}
+}
+
+fn render_struct_plain(state: &RenderState, ctx: &StructRenderContext, fields: &[Id]) -> String {
+	let mut output = format!(
+		"{}struct {}{}{} {{\n",
+		render_vis(ctx.item()),
+		render_name(ctx.item()),
+		ctx.generics(),
+		ctx.where_clause()
+	);
+
+	for field in fields {
+		let rendered = render_struct_field(state, field, ctx.force_children());
+		if !rendered.is_empty() {
+			output.push_str(&rendered);
+		}
+	}
+
+	output.push_str("}\n\n");
 	output
 }
 
@@ -221,53 +360,37 @@ pub fn render_enum(state: &mut RenderState, path_prefix: &str, item: &Item) -> S
 		return String::new();
 	}
 
-	let selection_active = state.selection().is_some();
-	let include_all_variants = state.selection_expands(&item.id);
+	let ctx = EnumRenderContext::new(
+		state,
+		item,
+		render_generics(&enum_.generics),
+		render_where_clause(&enum_.generics),
+	);
 
-	// Collect inline traits
-	let mut inline_traits = Vec::new();
-	for impl_id in &enum_.impls {
-		let impl_item = must_get(state.crate_data, impl_id);
-		let impl_ = extract_item!(impl_item, ItemEnum::Impl);
-		if impl_.is_synthetic {
-			continue;
-		}
+	let inline_traits = collect_inline_traits(state, &enum_.impls);
 
-		if let Some(trait_) = &impl_.trait_
-			&& let Some(name) = trait_.path.split("::").last()
-			&& DERIVE_TRAITS.contains(&name)
-		{
-			inline_traits.push(name);
-		}
-	}
-
-	// Add derive attribute if we found any inline traits
 	if !inline_traits.is_empty() {
 		output.push_str(&format!("#[derive({})]\n", inline_traits.join(", ")));
 	}
-
-	let generics = render_generics(&enum_.generics);
-	let where_clause = render_where_clause(&enum_.generics);
 
 	output.push_str(&format!(
 		"{}enum {}{}{} {{\n",
 		render_vis(item),
 		render_name(item),
-		generics,
-		where_clause
+		ctx.generics(),
+		ctx.where_clause()
 	));
 
 	for variant_id in &enum_.variants {
-		if !selection_active || include_all_variants || state.selection_context_contains(variant_id)
-		{
-			let variant_item = must_get(state.crate_data, variant_id);
-			let include_variant_fields = include_all_variants
-				|| !selection_active
-				|| state.selection_matches(&variant_item.id);
-			let rendered = render_enum_variant(state, variant_item, include_variant_fields);
-			if !rendered.is_empty() {
-				output.push_str(&rendered);
-			}
+		if !ctx.should_render_variant(state, variant_id) {
+			continue;
+		}
+
+		let variant_item = must_get(state.crate_data, variant_id);
+		let include_variant_fields = ctx.include_variant_fields(state, variant_item);
+		let rendered = render_enum_variant(state, &ctx, variant_item, include_variant_fields);
+		if !rendered.is_empty() {
+			output.push_str(&rendered);
 		}
 	}
 
@@ -288,15 +411,13 @@ pub fn render_enum(state: &mut RenderState, path_prefix: &str, item: &Item) -> S
 }
 
 /// Render a single enum variant.
-pub fn render_enum_variant(state: &RenderState, item: &Item, include_all_fields: bool) -> String {
-	let selection_active = state.selection().is_some();
-
-	if selection_active && !include_all_fields && !state.selection_context_contains(&item.id) {
-		return String::new();
-	}
-
+fn render_enum_variant(
+	state: &RenderState,
+	ctx: &EnumRenderContext,
+	item: &Item,
+	include_all_fields: bool,
+) -> String {
 	let mut output = docs(item);
-
 	let variant = extract_item!(item, ItemEnum::Variant);
 
 	output.push_str(&format!("    {}", render_name(item)));
@@ -308,7 +429,7 @@ pub fn render_enum_variant(state: &RenderState, item: &Item, include_all_fields:
 				.iter()
 				.filter_map(|field| {
 					field.as_ref().and_then(|id| {
-						if selection_active
+						if ctx.selection().is_active()
 							&& !include_all_fields
 							&& !state.selection_context_contains(id)
 						{
@@ -326,12 +447,15 @@ pub fn render_enum_variant(state: &RenderState, item: &Item, include_all_fields:
 		VariantKind::Struct { fields, .. } => {
 			output.push_str(" {\n");
 			for field in fields {
-				if !selection_active
+				if !ctx.selection().is_active()
 					|| include_all_fields
 					|| state.selection_context_contains(field)
 				{
-					let rendered =
-						render_struct_field(state, field, include_all_fields || !selection_active);
+					let rendered = render_struct_field(
+						state,
+						field,
+						include_all_fields || !ctx.selection().is_active(),
+					);
 					if !rendered.is_empty() {
 						output.push_str(&rendered);
 					}
@@ -350,48 +474,43 @@ pub fn render_enum_variant(state: &RenderState, item: &Item, include_all_fields:
 	output
 }
 
+enum UseResolution {
+	Items(Vec<Id>),
+	Alias { source: String, alias: String },
+	Simple(String),
+}
+
 /// Render a `use` statement, applying filter rules for private modules.
 pub fn render_use(state: &mut RenderState, path_prefix: &str, item: &Item) -> String {
-	use super::utils::escape_path;
-
 	let import = extract_item!(item, ItemEnum::Use);
+	let resolution = resolve_use(state, import);
 
-	if import.is_glob {
-		if let Some(source_id) = &import.id
-			&& let Some(source_item) = state.crate_data.index.get(source_id)
-		{
+	match resolution {
+		UseResolution::Items(items) => {
 			let mut output = String::new();
-
-			// Handle glob imports from modules (pub use module::*)
-			if matches!(source_item.inner, ItemEnum::Module(_)) {
-				let module = extract_item!(source_item, ItemEnum::Module);
-				for item_id in &module.items {
-					if let Some(item) = state.crate_data.index.get(item_id)
-						&& is_visible(state, item)
-					{
-						output.push_str(&render_item(state, path_prefix, item, true));
-					}
+			for item_id in items {
+				if let Some(item) = state.crate_data.index.get(&item_id) {
+					output.push_str(&render_item(state, path_prefix, item, true));
 				}
-				return output;
 			}
-
-			// Handle glob imports from enums (pub use Enum::*)
-			if matches!(source_item.inner, ItemEnum::Enum(_)) {
-				let enum_ = extract_item!(source_item, ItemEnum::Enum);
-				for variant_id in &enum_.variants {
-					if let Some(variant) = state.crate_data.index.get(variant_id)
-						&& is_visible(state, variant)
-					{
-						output.push_str(&render_item(state, path_prefix, variant, true));
-					}
-				}
-				return output;
-			}
-
-			// For other types, fall through to render as-is
+			output
 		}
-		// If we can't resolve the glob import, fall back to rendering it as-is
-		return format!("pub use {}::*;\n", escape_path(&import.source));
+		UseResolution::Alias { source, alias } => {
+			let mut output = docs(item);
+			output.push_str(&format!("pub use {source} as {alias};\n"));
+			output
+		}
+		UseResolution::Simple(source) => {
+			let mut output = docs(item);
+			output.push_str(&format!("pub use {source};\n"));
+			output
+		}
+	}
+}
+
+fn resolve_use(state: &RenderState, import: &rustdoc_types::Use) -> UseResolution {
+	if import.is_glob {
+		return resolve_glob_use(state, import);
 	}
 
 	if let Some(imported_item) = import
@@ -399,27 +518,73 @@ pub fn render_use(state: &mut RenderState, path_prefix: &str, item: &Item) -> St
 		.as_ref()
 		.and_then(|id| state.crate_data.index.get(id))
 	{
-		return render_item(state, path_prefix, imported_item, true);
+		return UseResolution::Items(vec![imported_item.id]);
 	}
 
-	let mut output = docs(item);
-	if import.name != import.source.split("::").last().unwrap_or(&import.source) {
-		// Check if the alias itself needs escaping
+	resolve_alias_use(import)
+}
+
+fn resolve_glob_use(state: &RenderState, import: &rustdoc_types::Use) -> UseResolution {
+	let Some(source_id) = &import.id else {
+		return UseResolution::Simple(format!("{}::*", escape_path(&import.source)));
+	};
+	let Some(source_item) = state.crate_data.index.get(source_id) else {
+		return UseResolution::Simple(format!("{}::*", escape_path(&import.source)));
+	};
+
+	match &source_item.inner {
+		ItemEnum::Module(module) => {
+			let items = module
+				.items
+				.iter()
+				.filter(|item_id| {
+					state
+						.crate_data
+						.index
+						.get(item_id)
+						.map(|item| is_visible(state, item))
+						.unwrap_or(false)
+				})
+				.cloned()
+				.collect();
+			UseResolution::Items(items)
+		}
+		ItemEnum::Enum(enum_) => {
+			let items = enum_
+				.variants
+				.iter()
+				.filter(|variant_id| {
+					state
+						.crate_data
+						.index
+						.get(variant_id)
+						.map(|variant| is_visible(state, variant))
+						.unwrap_or(false)
+				})
+				.cloned()
+				.collect();
+			UseResolution::Items(items)
+		}
+		_ => UseResolution::Simple(format!("{}::*", escape_path(&import.source))),
+	}
+}
+
+fn resolve_alias_use(import: &rustdoc_types::Use) -> UseResolution {
+	let source = escape_path(&import.source);
+	let last_segment = import.source.split("::").last().unwrap_or(&import.source);
+	if import.name != last_segment {
 		let escaped_name = if crate::keywords::is_reserved_word(import.name.as_str()) {
 			format!("r#{}", import.name)
 		} else {
 			import.name.clone()
 		};
-		output.push_str(&format!(
-			"pub use {} as {};\n",
-			escape_path(&import.source),
-			escaped_name
-		));
+		UseResolution::Alias {
+			source,
+			alias: escaped_name,
+		}
 	} else {
-		output.push_str(&format!("pub use {};\n", escape_path(&import.source)));
+		UseResolution::Simple(source)
 	}
-
-	output
 }
 
 /// Determine whether an item should be rendered based on visibility settings.

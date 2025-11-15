@@ -22,6 +22,104 @@ pub struct ResolvedTarget {
 	pub filter: String,
 }
 
+enum TargetResolution {
+	FileModule {
+		file: PathBuf,
+		extra_path: Vec<String>,
+	},
+	PackageDir {
+		package: CargoPath,
+		extra_path: Vec<String>,
+	},
+	WorkspaceRoot {
+		workspace: CargoPath,
+		extra_path: Vec<String>,
+	},
+	NamedCrate {
+		name: String,
+		version: Option<Version>,
+		extra_path: Vec<String>,
+	},
+}
+
+impl TargetResolution {
+	fn plan(target: Target) -> Result<Self> {
+		match target.entrypoint {
+			Entrypoint::Path(path) => {
+				if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
+					return Ok(Self::FileModule {
+						file: path,
+						extra_path: target.path,
+					});
+				}
+
+				let cargo_path = CargoPath::Path(path.clone());
+				if cargo_path.is_package()? {
+					Ok(Self::PackageDir {
+						package: cargo_path,
+						extra_path: target.path,
+					})
+				} else if cargo_path.is_workspace()? {
+					Ok(Self::WorkspaceRoot {
+						workspace: cargo_path,
+						extra_path: target.path,
+					})
+				} else {
+					Err(RuskelError::InvalidTarget(format!(
+						"Path '{}' is neither a package nor a workspace",
+						path.display()
+					)))
+				}
+			}
+			Entrypoint::Name { name, version } => Ok(Self::NamedCrate {
+				name,
+				version,
+				extra_path: target.path,
+			}),
+		}
+	}
+
+	fn resolve(self, offline: bool) -> Result<ResolvedTarget> {
+		match self {
+			Self::FileModule { file, extra_path } => {
+				ResolvedTarget::from_rust_file(file, &extra_path)
+			}
+			Self::PackageDir {
+				package,
+				extra_path,
+			} => Ok(ResolvedTarget::new(package, &extra_path)),
+			Self::WorkspaceRoot {
+				workspace,
+				mut extra_path,
+			} => {
+				if extra_path.is_empty() {
+					let packages = workspace.list_workspace_packages()?;
+					let mut error_msg =
+						"No package specified in workspace.\nAvailable packages:".to_string();
+					for package in packages {
+						error_msg.push_str(&format!("\n  - {package}"));
+					}
+					error_msg.push_str("\n\nUsage: ruskel <package-name>");
+					return Err(RuskelError::InvalidTarget(error_msg));
+				}
+				let package_name = extra_path.remove(0);
+				if let Some(package) = workspace.find_workspace_package(&package_name)? {
+					Ok(ResolvedTarget::new(package.package_path, &extra_path))
+				} else {
+					Err(RuskelError::ModuleNotFound(format!(
+						"Package '{package_name}' not found in workspace"
+					)))
+				}
+			}
+			Self::NamedCrate {
+				name,
+				version,
+				extra_path,
+			} => ResolvedTarget::resolve_named_target(&name, version.as_ref(), &extra_path, offline),
+		}
+	}
+}
+
 impl ResolvedTarget {
 	/// Build a `ResolvedTarget` with a normalised module filter path.
 	pub(super) fn new(path: CargoPath, components: &[String]) -> Self {
@@ -59,69 +157,8 @@ impl ResolvedTarget {
 
 	/// Resolve a `Target` into a fully-qualified location and filter path.
 	pub fn from_target(target: Target, offline: bool) -> Result<Self> {
-		match target.entrypoint {
-			Entrypoint::Path(path) => {
-				if path.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
-					Self::from_rust_file(path, &target.path)
-				} else {
-					let cargo_path = CargoPath::Path(path.clone());
-					if cargo_path.is_package()? {
-						Ok(Self::new(cargo_path, &target.path))
-					} else if cargo_path.is_workspace()? {
-						if target.path.is_empty() {
-							// List available packages in the workspace
-							let packages = cargo_path.list_workspace_packages()?;
-							let mut error_msg =
-								"No package specified in workspace.\nAvailable packages:"
-									.to_string();
-							for package in packages {
-								error_msg.push_str(&format!("\n  - {package}"));
-							}
-							error_msg.push_str("\n\nUsage: ruskel <package-name>");
-							Err(RuskelError::InvalidTarget(error_msg))
-						} else {
-							let package_name = &target.path[0];
-							if let Some(package) =
-								cargo_path.find_workspace_package(package_name)?
-							{
-								Ok(Self::new(package.package_path, &target.path[1..]))
-							} else {
-								Err(RuskelError::ModuleNotFound(format!(
-									"Package '{package_name}' not found in workspace"
-								)))
-							}
-						}
-					} else {
-						Err(RuskelError::InvalidTarget(format!(
-							"Path '{}' is neither a package nor a workspace",
-							path.display()
-						)))
-					}
-				}
-			}
-			Entrypoint::Name { name, version } => {
-				if let Some(version) = version {
-					return Self::from_registry_crate(&name, Some(&version), &target.path, offline);
-				}
-
-				let current_dir = env::current_dir()?;
-				match CargoPath::nearest_manifest(&current_dir) {
-					Some(root) => {
-						if let Some(workspace_member) = root.find_workspace_package(&name)? {
-							let Self { package_path, .. } = workspace_member;
-							return Ok(Self::new(package_path, &target.path));
-						}
-
-						if let Some(dependency) = root.find_dependency(&name, offline)? {
-							Ok(Self::new(dependency, &target.path))
-						} else {
-							Self::from_registry_crate(&name, None, &target.path, offline)
-						}
-					}
-					None => Self::from_registry_crate(&name, None, &target.path, offline),
-				}
-			}
-		}
+		let resolution = TargetResolution::plan(target)?;
+		resolution.resolve(offline)
 	}
 
 	/// Resolve a module path starting from a specific Rust source file.
@@ -184,6 +221,30 @@ impl ResolvedTarget {
 		let cargo_path = fetch_registry_crate(name, version, offline)?;
 		Ok(Self::new(cargo_path, path))
 	}
+
+	fn resolve_named_target(
+		name: &str,
+		version: Option<&Version>,
+		path: &[String],
+		offline: bool,
+	) -> Result<Self> {
+		if let Some(version) = version {
+			return Self::from_registry_crate(name, Some(version), path, offline);
+		}
+
+		let current_dir = env::current_dir()?;
+		if let Some(root) = CargoPath::nearest_manifest(&current_dir) {
+			if let Some(workspace_member) = root.find_workspace_package(name)? {
+				return Ok(Self::new(workspace_member.package_path, path));
+			}
+
+			if let Some(dependency) = root.find_dependency(name, offline)? {
+				return Ok(Self::new(dependency, path));
+			}
+		}
+
+		Self::from_registry_crate(name, None, path, offline)
+	}
 }
 
 /// Resovles a target specification and returns a ResolvedTarget, pointing to the package
@@ -218,8 +279,11 @@ pub fn resolve_target(target_str: &str, offline: bool) -> Result<ResolvedTarget>
 
 #[cfg(test)]
 mod tests {
-	use std::path::PathBuf;
+	use std::env;
+	use std::path::{Path, PathBuf};
+	use std::sync::{Mutex, MutexGuard};
 
+	use once_cell::sync::Lazy;
 	use tempfile::TempDir;
 
 	use super::*;
@@ -265,6 +329,7 @@ mod tests {
             name = "pkg2"
             version = "0.1.0"
             [dependencies]
+            standalone = { path = "../../standalone" }
             "#,
 		)
 		.unwrap();
@@ -287,6 +352,7 @@ mod tests {
 			"// standalone module",
 		)
 		.unwrap();
+		fs::create_dir_all(root.join("external")).unwrap();
 
 		temp_dir
 	}
@@ -372,5 +438,102 @@ mod tests {
 				}
 			}
 		}
+	}
+
+	static DIR_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+	struct DirGuard {
+		original: PathBuf,
+		_lock: MutexGuard<'static, ()>,
+	}
+
+	impl DirGuard {
+		fn change_to(path: &Path) -> Self {
+			let lock = DIR_MUTEX.lock().unwrap();
+			let original = env::current_dir().unwrap();
+			env::set_current_dir(path).unwrap();
+			Self {
+				original,
+				_lock: lock,
+			}
+		}
+	}
+
+	impl Drop for DirGuard {
+		fn drop(&mut self) {
+			let _ = env::set_current_dir(&self.original);
+		}
+	}
+
+	#[test]
+	fn named_target_prefers_workspace_member() {
+		let temp_dir = setup_test_structure();
+		let root = temp_dir.path();
+		let _guard = DirGuard::change_to(&root.join("workspace"));
+		let target = Target {
+			entrypoint: Entrypoint::Name {
+				name: "pkg1".to_string(),
+				version: None,
+			},
+			path: vec![],
+		};
+
+		let resolved = ResolvedTarget::from_target(target, true).expect("workspace member");
+		match resolved.package_path {
+			CargoPath::Path(path) => {
+				assert_eq!(
+					fs::canonicalize(path).unwrap(),
+					fs::canonicalize(root.join("workspace/pkg1")).unwrap()
+				);
+			}
+			_ => panic!("expected workspace member to be filesystem path"),
+		}
+	}
+
+	#[test]
+	fn named_target_prefers_dependency() {
+		let temp_dir = setup_test_structure();
+		let root = temp_dir.path();
+		let _guard = DirGuard::change_to(&root.join("workspace/pkg2"));
+
+		let target = Target {
+			entrypoint: Entrypoint::Name {
+				name: "standalone".to_string(),
+				version: None,
+			},
+			path: vec![],
+		};
+
+		let resolved = ResolvedTarget::from_target(target, true).expect("dependency");
+		match resolved.package_path {
+			CargoPath::Path(path) => {
+				assert_eq!(
+					fs::canonicalize(path).unwrap(),
+					fs::canonicalize(root.join("standalone")).unwrap()
+				);
+			}
+			_ => panic!("expected dependency to resolve to filesystem path"),
+		}
+	}
+
+	#[test]
+	fn registry_target_requires_version_offline() {
+		let temp_dir = setup_test_structure();
+		let root = temp_dir.path();
+		let _guard = DirGuard::change_to(&root.join("external"));
+
+		let target = Target {
+			entrypoint: Entrypoint::Name {
+				name: "nonexistent-crate-for-test".to_string(),
+				version: None,
+			},
+			path: vec![],
+		};
+
+		let err = ResolvedTarget::from_target(target, true).unwrap_err();
+		assert!(
+			err.to_string().contains("requires an explicit version"),
+			"unexpected error: {err}"
+		);
 	}
 }

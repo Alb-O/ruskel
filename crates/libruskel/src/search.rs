@@ -302,6 +302,11 @@ struct PathStackEntry {
 	segment: SearchPathSegment,
 }
 
+struct ImplContext {
+	pushed: Vec<PathStackEntry>,
+	impl_id: Id,
+}
+
 struct IndexBuilder<'a> {
 	crate_data: &'a Crate,
 	include_private: bool,
@@ -535,7 +540,43 @@ impl<'a> IndexBuilder<'a> {
 			return;
 		}
 
-		let mut pushed: Vec<PathStackEntry> = Vec::new();
+		let ctx = self.enter_impl_context(impl_item, impl_);
+		for member_id in &impl_.items {
+			if let Some(member) = self.crate_data.index.get(member_id) {
+				match &member.inner {
+					ItemEnum::Function(_) => {
+						self.record_impl_member(member, SearchItemKind::Method, &ctx)
+					}
+					ItemEnum::AssocConst { .. } => {
+						self.record_impl_member(member, SearchItemKind::AssocConst, &ctx)
+					}
+					ItemEnum::AssocType { .. } => {
+						self.record_impl_member(member, SearchItemKind::AssocType, &ctx)
+					}
+					ItemEnum::TypeAlias(_) => {
+						self.record_impl_member(member, SearchItemKind::TypeAlias, &ctx)
+					}
+					ItemEnum::Constant { .. } => {
+						self.record_impl_member(member, SearchItemKind::Constant, &ctx)
+					}
+					_ => self.visit_item(member_id),
+				}
+			}
+		}
+
+		self.exit_impl_context(ctx);
+	}
+
+	fn record_impl_member(&mut self, item: &Item, kind: SearchItemKind, ctx: &ImplContext) {
+		let segment = self.make_segment(item, kind, None);
+		self.record_item(item, kind, &segment, false, &[ctx.impl_id]);
+	}
+
+	fn enter_impl_context(&mut self, impl_item: &Item, impl_: &rustdoc_types::Impl) -> ImplContext {
+		let mut ctx = ImplContext {
+			pushed: Vec::new(),
+			impl_id: impl_item.id,
+		};
 
 		if let Some(target_entry) = self.impl_target_entry(&impl_.for_) {
 			let has_target = target_entry
@@ -549,68 +590,22 @@ impl<'a> IndexBuilder<'a> {
 				.is_some();
 			if !has_target {
 				self.stack.push(target_entry.clone());
-				pushed.push(target_entry);
+				ctx.pushed.push(target_entry);
 			}
 		}
 
 		if let Some(trait_entry) = self.impl_trait_entry(&impl_.trait_) {
 			self.stack.push(trait_entry.clone());
-			pushed.push(trait_entry);
+			ctx.pushed.push(trait_entry);
 		}
 
-		let is_trait_impl = impl_.trait_.is_some();
-		for member_id in &impl_.items {
-			if let Some(member) = self.crate_data.index.get(member_id) {
-				match &member.inner {
-					ItemEnum::Function(_) => self.record_impl_member(
-						impl_item.id,
-						member,
-						SearchItemKind::Method,
-						is_trait_impl,
-					),
-					ItemEnum::AssocConst { .. } => self.record_impl_member(
-						impl_item.id,
-						member,
-						SearchItemKind::AssocConst,
-						is_trait_impl,
-					),
-					ItemEnum::AssocType { .. } => self.record_impl_member(
-						impl_item.id,
-						member,
-						SearchItemKind::AssocType,
-						is_trait_impl,
-					),
-					ItemEnum::TypeAlias(_) => self.record_impl_member(
-						impl_item.id,
-						member,
-						SearchItemKind::TypeAlias,
-						is_trait_impl,
-					),
-					ItemEnum::Constant { .. } => self.record_impl_member(
-						impl_item.id,
-						member,
-						SearchItemKind::Constant,
-						is_trait_impl,
-					),
-					_ => self.visit_item(member_id),
-				}
-			}
-		}
-
-		for _ in 0..pushed.len() {
-			self.stack.pop();
-		}
+		ctx
 	}
 
-	fn record_impl_member(
-		&mut self,
-		impl_id: Id,
-		item: &Item,
-		kind: SearchItemKind,
-		_is_trait_impl: bool,
-	) {
-		let segment = self.make_segment(item, kind, None);
-		self.record_item(item, kind, &segment, false, &[impl_id]);
+	fn exit_impl_context(&mut self, ctx: ImplContext) {
+		for _ in ctx.pushed {
+			self.stack.pop();
+		}
 	}
 
 	fn impl_trait_entry(&self, trait_path: &Option<rustdoc_types::Path>) -> Option<PathStackEntry> {

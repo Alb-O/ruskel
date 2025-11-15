@@ -1,4 +1,4 @@
-pub use self::config::{create_quiet_cargo_config, is_rustup_available};
+pub use self::config::is_rustup_available;
 pub use self::manifest::to_import_name;
 pub use self::path::CargoPath;
 pub use self::registry::fetch_registry_crate;

@@ -68,13 +68,3 @@ impl From<rust_format::Error> for RuskelError {
 		Self::Format(err.to_string())
 	}
 }
-
-/// Convert an `anyhow::Error` into the corresponding `RuskelError` variant.
-pub fn convert_cargo_error(error: &anyhow::Error) -> RuskelError {
-	let err_msg = error.to_string();
-	if err_msg.contains("no matching package") {
-		RuskelError::DependencyNotFound
-	} else {
-		RuskelError::CargoError(err_msg)
-	}
-}

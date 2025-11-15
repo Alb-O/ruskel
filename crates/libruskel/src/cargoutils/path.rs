@@ -2,14 +2,11 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use cargo::core::Workspace;
-use cargo::ops;
 use rustdoc_json::PackageTarget;
 use rustdoc_types::Crate;
 use tempfile::TempDir;
 
-use super::config::create_quiet_cargo_config;
-use crate::error::{Result, RuskelError, convert_cargo_error};
+use crate::error::{Result, RuskelError};
 
 /// A path to a crate. This can be a directory on the filesystem or a temporary directory.
 #[derive(Debug)]
@@ -157,21 +154,13 @@ impl CargoPath {
 	}
 
 	/// Find a dependency within the current workspace or registry cache.
-	pub fn find_dependency(&self, dependency: &str, offline: bool) -> Result<Option<Self>> {
-		let config = create_quiet_cargo_config(offline)?;
+	pub fn find_dependency(&self, dependency: &str, _offline: bool) -> Result<Option<Self>> {
 		let manifest_path = self.manifest_path()?;
 
-		let workspace =
-			Workspace::new(&manifest_path, &config).map_err(|err| convert_cargo_error(&err))?;
-
-		let (_, ps) = ops::fetch(
-			&workspace,
-			&ops::FetchOptions {
-				gctx: &config,
-				targets: vec![],
-			},
-		)
-		.map_err(|err| convert_cargo_error(&err))?;
+		let metadata = cargo_metadata::MetadataCommand::new()
+			.manifest_path(&manifest_path)
+			.exec()
+			.map_err(|err| RuskelError::Generate(format!("Failed to get cargo metadata: {err}")))?;
 
 		// Try both the provided name and its hyphenated/underscored version
 		let alt_dependency = if dependency.contains('_') {
@@ -180,14 +169,24 @@ impl CargoPath {
 			dependency.replace('-', "_")
 		};
 
-		for package in ps.packages() {
-			let package_name = package.name().as_str();
-			if package_name == dependency || package_name == alt_dependency {
+		// First check workspace members
+		for package in &metadata.workspace_packages() {
+			if package.name == dependency || package.name == alt_dependency {
 				return Ok(Some(Self::Path(
-					package.manifest_path().parent().unwrap().to_path_buf(),
+					package.manifest_path.parent().unwrap().to_path_buf().into(),
 				)));
 			}
 		}
+
+		// Then check all resolved dependencies
+		for package in &metadata.packages {
+			if package.name == dependency || package.name == alt_dependency {
+				return Ok(Some(Self::Path(
+					package.manifest_path.parent().unwrap().to_path_buf().into(),
+				)));
+			}
+		}
+
 		Ok(None)
 	}
 
@@ -221,15 +220,14 @@ impl CargoPath {
 			module_name.replace('-', "_")
 		};
 
-		let config = create_quiet_cargo_config(false)?;
+		let metadata = cargo_metadata::MetadataCommand::new()
+			.manifest_path(&workspace_manifest_path)
+			.exec()
+			.map_err(|err| RuskelError::Generate(format!("Failed to get cargo metadata: {err}")))?;
 
-		let workspace = Workspace::new(&workspace_manifest_path, &config)
-			.map_err(|err| convert_cargo_error(&err))?;
-
-		for package in workspace.members() {
-			let package_name = package.name().as_str();
-			if package_name == module_name || package_name == alt_name {
-				let package_path = package.manifest_path().parent().unwrap().to_path_buf();
+		for package in metadata.workspace_packages() {
+			if package.name == module_name || package.name == alt_name {
+				let package_path = package.manifest_path.parent().unwrap().to_path_buf().into();
 				return Ok(Some(super::resolved_target::ResolvedTarget::new(
 					Self::Path(package_path),
 					&[],
@@ -242,15 +240,17 @@ impl CargoPath {
 	/// List all packages in the current workspace.
 	pub(super) fn list_workspace_packages(&self) -> Result<Vec<String>> {
 		let workspace_manifest_path = self.manifest_path()?;
-		let config = create_quiet_cargo_config(false)?;
 
-		let workspace = Workspace::new(&workspace_manifest_path, &config)
-			.map_err(|err| convert_cargo_error(&err))?;
+		let metadata = cargo_metadata::MetadataCommand::new()
+			.manifest_path(&workspace_manifest_path)
+			.exec()
+			.map_err(|err| RuskelError::Generate(format!("Failed to get cargo metadata: {err}")))?;
 
-		let mut packages = Vec::new();
-		for package in workspace.members() {
-			packages.push(package.name().as_str().to_string());
-		}
+		let mut packages: Vec<String> = metadata
+			.workspace_packages()
+			.iter()
+			.map(|p| p.name.to_string())
+			.collect();
 
 		packages.sort();
 		Ok(packages)

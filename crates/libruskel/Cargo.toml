@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 anyhow = { version = "1.0", default-features = false }
 bitflags = "2.10"
-cargo = "0.92"
+cargo_metadata = "0.23"
 cargo_toml = "0.22"
 once_cell = { version = "1.21", default-features = false }
 regex = "1.12"

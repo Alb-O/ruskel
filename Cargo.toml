@@ -14,7 +14,11 @@ missing_docs = "warn"
 [workspace]
 resolver = "2"
 members = ["crates/*"]
-exclude = ["xtask"]
+exclude = ["vendor/cargo-public-api", "vendor/cargo-manifest"]
 
 [workspace.dependencies]
 libruskel = { version = "0.0.11", path = "crates/libruskel" }
+
+[patch.crates-io]
+rustdoc-json = { path = "vendor/cargo-public-api/rustdoc-json" }
+cargo-manifest = { path = "vendor/cargo-manifest" }

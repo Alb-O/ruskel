@@ -209,7 +209,7 @@ pub fn render_module(state: &mut RenderState, path_prefix: &str, item: &Item) ->
 
 /// Render a struct declaration and its fields.
 pub fn render_struct(state: &mut RenderState, path_prefix: &str, item: &Item) -> String {
-	let mut output = docs(item);
+	let docs = docs(item);
 
 	let struct_ = extract_item!(item, ItemEnum::Struct);
 
@@ -223,20 +223,20 @@ pub fn render_struct(state: &mut RenderState, path_prefix: &str, item: &Item) ->
 
 	let inline_traits = collect_inline_traits(state, &struct_.impls);
 
-	if !inline_traits.is_empty() {
-		output.push_str(&format!("#[derive({})]\n", inline_traits.join(", ")));
-	}
+	let rendered_struct = match &struct_.kind {
+		StructKind::Unit => Some(render_struct_unit(&ctx)),
+		StructKind::Tuple(fields) => render_struct_tuple(state, &ctx, fields),
+		StructKind::Plain { fields, .. } => Some(render_struct_plain(state, &ctx, fields)),
+	};
 
-	match &struct_.kind {
-		StructKind::Unit => output.push_str(&render_struct_unit(&ctx)),
-		StructKind::Tuple(fields) => {
-			if let Some(rendered) = render_struct_tuple(state, &ctx, fields) {
-				output.push_str(&rendered);
-			}
+	let mut output = String::new();
+
+	if let Some(rendered) = rendered_struct {
+		output.push_str(&docs);
+		if !inline_traits.is_empty() {
+			output.push_str(&format!("#[derive({})]\n", inline_traits.join(", ")));
 		}
-		StructKind::Plain { fields, .. } => {
-			output.push_str(&render_struct_plain(state, &ctx, fields))
-		}
+		output.push_str(&rendered);
 	}
 
 	// Render impl blocks
@@ -269,10 +269,11 @@ fn render_struct_tuple(
 	fields: &[Option<Id>],
 ) -> Option<String> {
 	let selection = ctx.selection();
+	let include_placeholders = !selection.is_active() || selection.force_children();
 	let fields_str = fields
 		.iter()
-		.filter_map(|field| {
-			field.as_ref().and_then(|id| {
+		.filter_map(|field| match field {
+			Some(id) => {
 				if !selection.includes_child(state, id) {
 					return None;
 				}
@@ -283,7 +284,8 @@ fn render_struct_tuple(
 				} else {
 					Some(format!("{}{}", render_vis(field_item), render_type(ty)))
 				}
-			})
+			}
+			None => include_placeholders.then(|| "_".to_string()),
 		})
 		.collect::<Vec<_>>()
 		.join(", ");

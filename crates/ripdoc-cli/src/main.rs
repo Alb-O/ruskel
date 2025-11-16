@@ -86,7 +86,7 @@ struct Cli {
 	all_features: bool,
 
 	/// Specify features to enable
-	#[arg(short = 'f', long, value_delimiter = ',')]
+	#[arg(short = 'F', long, value_delimiter = ',')]
 	features: Vec<String>,
 
 	/// Enable offline mode, ensuring Cargo will not use the network
@@ -106,7 +106,7 @@ struct Cli {
 	cache_dir: Option<String>,
 
 	/// Select the render format (`rust` or `markdown`)
-	#[arg(long = "format", value_enum, default_value = "markdown")]
+	#[arg(short = 'f', long, value_enum, default_value = "markdown")]
 	format: OutputFormat,
 }
 

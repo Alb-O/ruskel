@@ -1,0 +1,24 @@
+[package]
+name = "ripdoc-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdoc-cargo = { workspace = true }
+ripdoc-render = { workspace = true }
+bitflags = { version = "2.10", default-features = false }
+rustdoc-types = { version = "0.56", default-features = false }
+serde_json = { version = "1.0", default-features = false }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+tempfile = { version = "3.23", default-features = false }
+rust-format = { version = "0.3", default-features = false }

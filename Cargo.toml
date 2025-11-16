@@ -12,12 +12,14 @@ keywords = ["docs", "documentation", "outline", "cli"]
 missing_docs = "warn"
 
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["crates/*"]
-exclude = ["vendor/cargo-public-api", "vendor/cargo-manifest"]
 
 [workspace.dependencies]
-libripdoc = { version = "0.1.0", path = "crates/libripdoc" }
+ripdoc-cli = { path = "crates/ripdoc-cli" }
+ripdoc-core = { path = "crates/ripdoc-core" }
+ripdoc-cargo = { path = "crates/ripdoc-cargo" }
+ripdoc-render = { path = "crates/ripdoc-render" }
 
 [patch.crates-io]
 rustdoc-json = { path = "vendor/cargo-public-api/rustdoc-json" }

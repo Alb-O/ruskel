@@ -9,15 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "aho-corasick"
-version = "1.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddd31a130427c27518df266943a5308ed92d4b226cc639f5a8f1002816174301"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "anstream"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -66,12 +57,6 @@ dependencies = [
  "once_cell_polyfill",
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "anyhow"
-version = "1.0.100"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "base64"
@@ -332,27 +317,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
 
 [[package]]
-name = "libripdoc"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bitflags",
- "cargo_metadata",
- "cargo_toml",
- "once_cell",
- "pretty_assertions",
- "regex",
- "rust-format",
- "rustdoc-json",
- "rustdoc-types",
- "semver",
- "serde_json",
- "tempfile",
- "thiserror",
- "ureq",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -438,8 +402,6 @@ version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843bc0191f75f3e22651ae5f1e72939ab2f72a4bc30fa80a066bd66edefc24d4"
 dependencies = [
- "aho-corasick",
- "memchr",
  "regex-automata",
  "regex-syntax",
 ]
@@ -450,8 +412,6 @@ version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5276caf25ac86c8d810222b3dbb938e512c55c6831a10f3e6ed1c93b84041f1c"
 dependencies = [
- "aho-corasick",
- "memchr",
  "regex-syntax",
 ]
 
@@ -476,12 +436,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdoc-cargo"
+version = "0.1.0"
+dependencies = [
+ "cargo_metadata",
+ "cargo_toml",
+ "once_cell",
+ "rustdoc-json",
+ "rustdoc-types",
+ "semver",
+ "serde_json",
+ "tempfile",
+ "ureq",
+]
+
+[[package]]
 name = "ripdoc-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "libripdoc",
- "tokio",
+ "ripdoc-core",
+]
+
+[[package]]
+name = "ripdoc-core"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "pretty_assertions",
+ "ripdoc-cargo",
+ "ripdoc-render",
+ "rust-format",
+ "rustdoc-types",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "ripdoc-render"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "regex",
+ "rust-format",
+ "rustdoc-types",
 ]
 
 [[package]]
@@ -693,15 +691,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "tokio"
-version = "1.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff360e02eab121e0bc37a2d3b4d4dc622e6eda3a8e5253d5435ecf5bd4c68408"
-dependencies = [
- "pin-project-lite",
 ]
 
 [[package]]

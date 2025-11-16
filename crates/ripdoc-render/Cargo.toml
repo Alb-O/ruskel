@@ -1,0 +1,18 @@
+[package]
+name = "ripdoc-render"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+once_cell = { version = "1.21", default-features = false }
+regex = { version = "1.12", default-features = false }
+rust-format = { version = "0.3", default-features = false }
+rustdoc-types = { version = "0.56", default-features = false }

@@ -1,0 +1,23 @@
+[package]
+name = "ripdoc-cargo"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cargo_metadata = { version = "0.23", default-features = false }
+cargo_toml = { version = "0.22", default-features = false }
+semver = { version = "1.0", default-features = false }
+serde_json = { version = "1.0", default-features = false }
+tempfile = { version = "3.23", default-features = false }
+ureq = { version = "3.1" }
+rustdoc-json = { version = "0.9", default-features = false }
+rustdoc-types = { version = "0.56", default-features = false }
+once_cell = { version = "1.21", default-features = false }

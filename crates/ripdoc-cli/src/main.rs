@@ -1,10 +1,10 @@
-//! Command-line interface for the `ripdoc` API skeleton generator.
+//! CLI entrypoint.
 
 use std::error::Error;
 use std::process::{self, Command, Stdio};
 
 use clap::{Parser, ValueEnum};
-use libripdoc::{Ripdoc, SearchDomain, SearchOptions};
+use ripdoc_core::{Ripdoc, SearchDomain, SearchOptions};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// Available search domains accepted by `--search-spec`.

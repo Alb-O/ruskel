@@ -130,8 +130,7 @@ fn is_list_item(line: &str) -> bool {
 		return false;
 	}
 
-	matches!(chars.next(), Some('.') | Some(')'))
-		&& matches!(chars.next(), Some(' ' | '\t'))
+	matches!(chars.next(), Some('.') | Some(')')) && matches!(chars.next(), Some(' ' | '\t'))
 }
 
 fn ensure_block_gap(markdown: &mut String) {

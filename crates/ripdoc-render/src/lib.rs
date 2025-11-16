@@ -40,7 +40,7 @@ pub mod state;
 pub mod utils;
 
 // Re-export public API
-pub use core::{RenderSelection, Renderer};
+pub use core::{RenderFormat, RenderSelection, Renderer};
 
 pub use syntax::{
 	is_reserved_word, render_function_args, render_generic_bounds, render_generics, render_name,

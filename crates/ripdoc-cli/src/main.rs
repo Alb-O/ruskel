@@ -5,7 +5,7 @@ use std::process::{self, Command, Stdio};
 
 use clap::{Parser, ValueEnum};
 use owo_colors::OwoColorize;
-use ripdoc_core::{Ripdoc, SearchDomain, SearchOptions};
+use ripdoc_core::{RenderFormat, Ripdoc, SearchDomain, SearchOptions};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// Available search domains accepted by `--search-spec`.
@@ -104,6 +104,10 @@ struct Cli {
 	/// Custom directory for storing cached rustdoc JSON output
 	#[arg(long, value_name = "DIR")]
 	cache_dir: Option<String>,
+
+	/// Select the render format (`rust` or `markdown`)
+	#[arg(long = "format", value_enum, default_value = "rust")]
+	format: OutputFormat,
 }
 
 /// Ensure the nightly toolchain and rust-docs JSON component are present.
@@ -160,6 +164,7 @@ fn run_cmdline(cli: &Cli) -> Result<(), Box<dyn Error>> {
 	let mut rs = Ripdoc::new()
 		.with_offline(cli.offline)
 		.with_auto_impls(cli.auto_impls)
+		.with_render_format(cli.format.into())
 		.with_silent(!cli.verbose);
 
 	// Configure caching
@@ -372,5 +377,22 @@ fn main() {
 	if let Err(e) = result {
 		eprintln!("{e}");
 		process::exit(1);
+	}
+}
+#[derive(Debug, Clone, Copy, ValueEnum)]
+/// Output formats the CLI can emit.
+enum OutputFormat {
+	/// Render formatted Rust code (default).
+	Rust,
+	/// Emit Markdown with stripped documentation markers.
+	Markdown,
+}
+
+impl From<OutputFormat> for RenderFormat {
+	fn from(format: OutputFormat) -> Self {
+		match format {
+			OutputFormat::Rust => RenderFormat::Rust,
+			OutputFormat::Markdown => RenderFormat::Markdown,
+		}
 	}
 }

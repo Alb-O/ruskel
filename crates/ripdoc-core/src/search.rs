@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 use bitflags::bitflags;
 use ripdoc_render::{
-	render_name, render_path, render_type, signatures as signature, RenderSelection,
+	RenderSelection, render_name, render_path, render_type, signatures as signature,
 };
 use rustdoc_types::{Crate, Id, Item, ItemEnum, Module, Struct, StructKind, Visibility};
 

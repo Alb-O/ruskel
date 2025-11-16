@@ -1,4 +1,3 @@
-use rust_format::Formatter;
 use rustdoc_types::{Crate, Id, Item};
 
 use super::core::{RenderSelection, Renderer};
@@ -41,7 +40,7 @@ impl<'a, 'b> RenderState<'a, 'b> {
 			return Err(RipdocError::FilterNotMatched(self.config.filter.clone()));
 		}
 
-		Ok(self.config.formatter.format_str(&output)?)
+		Ok(output)
 	}
 
 	/// Return the active render selection, if any.

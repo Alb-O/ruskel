@@ -64,6 +64,7 @@ pub mod termsize {
 - Filter output to matched items using `--search` with the `--search-spec` domain selector and `--direct-match-only` when you want to avoid container expansion
 - Generate tabular item listings with `--list`, optionally filtered by `--search`
 - Syntax highlighting for terminal output
+- Markdown-friendly output via `--format markdown`, which strips doc comment markers and wraps code in fenced blocks
 - Optionally include private items and auto-implemented traits
 - Support for custom feature flags and version specification
 
@@ -137,6 +138,9 @@ ripdoc reqwest --search status --search-spec name,signature
 
 # Search for "status" in docs only
 ripdoc reqwest --search status --search-spec doc
+
+# Render Markdown output with stripped doc comment markers
+ripdoc serde --format markdown
 ```
 
 ---

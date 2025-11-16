@@ -11,12 +11,12 @@ pub mod search;
 use ripdoc_cargo::resolve_target;
 /// Target parsing helpers exposed through ripdoc-cargo.
 pub use ripdoc_cargo::target;
-pub use ripdoc_render::Renderer;
+pub use ripdoc_render::{RenderFormat, Renderer};
 use rustdoc_types::Crate;
 
 pub use crate::error::Result;
-use crate::search::{build_render_selection, SearchIndex};
 pub use crate::search::{ListItem, SearchDomain, SearchItemKind, SearchOptions, SearchResponse};
+use crate::search::{SearchIndex, build_render_selection};
 
 /// Ripdoc generates a skeletonized version of a Rust crate in a single page.
 /// It produces syntactically valid Rust code with all implementations omitted.
@@ -32,6 +32,9 @@ pub struct Ripdoc {
 
 	/// Whether to render auto-implemented traits.
 	auto_impls: bool,
+
+	/// Output format to use when rendering crates.
+	render_format: RenderFormat,
 
 	/// Whether to suppress output during processing.
 	silent: bool,
@@ -93,6 +96,7 @@ impl Ripdoc {
 			offline: false,
 			auto_impls: false,
 			silent: false,
+			render_format: RenderFormat::Rust,
 			cache_config: ripdoc_cargo::CacheConfig::default(),
 		}
 	}
@@ -107,6 +111,12 @@ impl Ripdoc {
 	/// Enables or disables rendering of auto-implemented traits.
 	pub fn with_auto_impls(mut self, auto_impls: bool) -> Self {
 		self.auto_impls = auto_impls;
+		self
+	}
+
+	/// Selects the output format used when rendering crate documentation.
+	pub fn with_render_format(mut self, format: RenderFormat) -> Self {
+		self.render_format = format;
 		self
 	}
 
@@ -192,6 +202,7 @@ impl Ripdoc {
 			.with_filter(&rt.filter)
 			.with_auto_impls(self.auto_impls)
 			.with_private_items(options.include_private)
+			.with_format(self.render_format)
 			.with_selection(selection);
 		let rendered = renderer.render(&crate_data)?;
 
@@ -273,7 +284,8 @@ impl Ripdoc {
 		let renderer = Renderer::default()
 			.with_filter(&rt.filter)
 			.with_auto_impls(self.auto_impls)
-			.with_private_items(private_items);
+			.with_private_items(private_items)
+			.with_format(self.render_format);
 
 		let rendered = renderer.render(&crate_data)?;
 
@@ -292,7 +304,8 @@ impl Ripdoc {
 			let renderer_private = Renderer::default()
 				.with_filter(&rt.filter)
 				.with_auto_impls(self.auto_impls)
-				.with_private_items(true);
+				.with_private_items(true)
+				.with_format(self.render_format);
 
 			return Ok(renderer_private.render(&crate_data_private)?);
 		}
